@@ -330,7 +330,7 @@ function afterPlayers(){
 
 /* ---------- lobby ---------- */
 function showStartCountdown(startAt){if(!startAt||startCountdownAt===startAt)return;startCountdownAt=startAt;clearInterval(startCountdownTimer);var layer=$("start-countdown"),number=$("start-countdown-number"),goAt=startAt-450;number.textContent="";function paint(){var now=Date.now()+clockOff;if(now>=startAt){layer.hidden=true;clearInterval(startCountdownTimer);startCountdownTimer=null;startCountdownAt=0;return}layer.hidden=false;var left=Math.min(3,Math.ceil((goAt-now)/1000));var label=left>0?String(left):"VAI!";if(number.textContent!==label){number.textContent=label;number.style.animation="none";void number.offsetWidth;number.style.animation="";fx(label==="VAI!"?"go":"count")}}paint();startCountdownTimer=setInterval(paint,100)}
-function showLobby(){S.key="";S.round=-1;S.nextFor=-1;S.revFor=-1;show("lobby");pushPicker();$("code").textContent=R.code;$("room-sharelink").value=roomShareUrl(R.code);$("room-sharebtn").hidden=!navigator.share;renderLobbyPlayers();renderCfg()}
+function showLobby(){S.key="";S.round=-1;S.nextFor=-1;S.revFor=-1;if(!$("s-lobby").classList.contains("on"))show("lobby");pushPicker();$("code").textContent=R.code;$("room-sharelink").value=roomShareUrl(R.code);$("room-sharebtn").hidden=!navigator.share;renderLobbyPlayers();renderCfg()}
 function renderLobbyPlayers(){$("lobby-pl").innerHTML=players.map(function(p){return '<div class="pl'+(p.user_id===me.id?' me':'')+'"><span class="score-player">'+avatarHtml(p)+'<span>'+esc(p.display_name)+(p.user_id===R.host_id?' 👑':'')+'</span></span></div>'}).join("")}
 function renderCfg(){
   var host=isHost();$("cfg").hidden=!host;$("cfg-ro").hidden=host;
