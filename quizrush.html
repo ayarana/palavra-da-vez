@@ -17,6 +17,11 @@ main{position:relative;z-index:1;max-width:720px;margin:0 auto;padding:20px 16px
 main.wide{max-width:1360px}
 main.home{width:min(100%,920px);max-width:920px;margin:0 auto;padding:14px 16px 40px}
 main.home>h1.logo{display:none}
+#start-countdown[hidden]{display:none}
+#start-countdown{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at 50% 42%,rgba(72,37,138,.72),rgba(7,7,13,.94) 68%);backdrop-filter:blur(7px);text-align:center}
+.countdown-title{font-size:clamp(20px,4vw,30px);color:var(--text);margin-bottom:12px}
+.countdown-number{display:block;font:400 clamp(120px,32vw,220px)/.95 "Lilita One",Impact,sans-serif;color:var(--yellow);text-shadow:8px 8px 0 var(--pink);animation:countpop .45s ease-out}
+@keyframes countpop{from{transform:scale(.35);opacity:.2}to{transform:scale(1);opacity:1}}
 .share-panel{margin-top:14px;padding:14px;background:rgba(7,7,13,.38);border:1px solid var(--bd);border-radius:14px}
 .share-panel p{margin:4px 0 10px}
 .share-row{display:flex;align-items:stretch;gap:8px}
@@ -207,6 +212,7 @@ body.picker h1.logo{display:none}
   <div id="pk-box" hidden><div class="top"><span class="theme" id="pk-theme"></span><span class="note" id="pk-count"></span></div><div class="timer"><i id="pk-bar"></i></div><div class="q" id="pk-q"></div><div class="opts" id="pk-opts"></div><div class="fb" id="pk-fb"></div></div></div></section>
 </main>
 <div id="toast" role="status"></div>
+<div id="start-countdown" hidden role="status" aria-live="assertive"><div><div class="countdown-title">O jogo começa em</div><strong class="countdown-number" id="start-countdown-number">3</strong></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
@@ -215,7 +221,7 @@ var PICKER=new URLSearchParams(location.search).has("picker");
 var sb=PICKER?null:window.supabase.createClient(SB_URL,SB_KEY);
 var THEMES=["Geografia","História","Música","Games","Animes","Futebol","Basquete","Arte","Tecnologia","Cinema e TV","Reino Animal","Cultura POP","Comidas e Bebidas","Super-heróis","Espaço","Mitologia","Literatura","Fórmula 1 e automobilismo","Memes e Internet"];
 var ERR={escolha_um_tema:"Escolha pelo menos um tema.",sem_perguntas:"Não há perguntas para esses temas.",somente_admin:"Só o admin pode fazer isso.",partida_em_andamento:"A partida já está em andamento.",sala_nao_encontrada:"Sala não encontrada. Confira o código.",tempo_esgotado:"Tempo esgotado.",fora_da_pergunta:"Não há pergunta aberta agora.",login_necessario:"Entre com a Twitch primeiro."};
-var clockOff=0,me=null,R=null,players=[],answered=new Set(),chan=null,tick=null,chatIds={},S={},els={},prevRank={},prevScore={},plT=null,toastT=null;
+var clockOff=0,me=null,R=null,players=[],answered=new Set(),chan=null,tick=null,chatIds={},S={},els={},prevRank={},prevScore={},plT=null,toastT=null,startCountdownTimer=null,startGameTimer=null,startCountdownAt=0;
 
 function $(i){return document.getElementById(i)}
 function esc(t){var d=document.createElement("div");d.textContent=t==null?"":String(t);return d.innerHTML}
@@ -259,7 +265,7 @@ $("room-copylink").onclick=async function(){var input=$("room-sharelink");try{aw
 $("room-sharebtn").onclick=function(){if(!navigator.share)return;navigator.share({title:"QuizRush",text:"Entre na minha sala do QuizRush!",url:$("room-sharelink").value}).catch(function(){})};
 
 /* ---------- sala ---------- */
-function leaveRoom(){if(chan){sb.removeChannel(chan);chan=null}clearInterval(tick);R=null;players=[];answered=new Set();S={};els={};prevRank={};prevScore={};chatIds={}}
+function leaveRoom(){if(chan){sb.removeChannel(chan);chan=null}clearInterval(tick);clearInterval(startCountdownTimer);clearTimeout(startGameTimer);startCountdownAt=0;$("start-countdown").hidden=true;R=null;players=[];answered=new Set();S={};els={};prevRank={};prevScore={};chatIds={}}
 $("b-leave").onclick=function(){leaveRoom();show("home");pushPicker()};
 function enterRoom(id){
   leaveRoom();
@@ -277,7 +283,8 @@ function loadChat(){return sb.from("qr_chat").select("id,user_id,author,body").e
 function subscribe(id){
   var f="room_id=eq."+id;
   chan=sb.channel("qr-"+id)
-   .on("postgres_changes",{event:"*",schema:"public",table:"qr_rooms",filter:"id=eq."+id},function(p){if(!p.new||!p.new.id)return;var oldRound=R.round;R=p.new;if(R.round!==oldRound)answered=new Set();onRoom()})
+   .on("broadcast",{event:"start_countdown"},function(msg){if(msg.payload&&msg.payload.startAt)showStartCountdown(msg.payload.startAt)})
+    .on("postgres_changes",{event:"*",schema:"public",table:"qr_rooms",filter:"id=eq."+id},function(p){if(!p.new||!p.new.id)return;var oldRound=R.round;R=p.new;if(R.round!==oldRound)answered=new Set();onRoom()})
    .on("postgres_changes",{event:"*",schema:"public",table:"qr_players",filter:f},function(){clearTimeout(plT);plT=setTimeout(loadPlayers,150)})
    .on("postgres_changes",{event:"INSERT",schema:"public",table:"qr_answered",filter:f},function(p){if(p.new.round===R.round){answered.add(p.new.user_id);renderBoard();checkAllAnswered()}})
    .on("postgres_changes",{event:"INSERT",schema:"public",table:"qr_chat",filter:f},function(p){addChat(p.new)})
@@ -299,6 +306,7 @@ function afterPlayers(){
 }
 
 /* ---------- lobby ---------- */
+function showStartCountdown(startAt){if(!startAt||startCountdownAt===startAt)return;startCountdownAt=startAt;clearInterval(startCountdownTimer);var layer=$("start-countdown"),number=$("start-countdown-number"),goAt=startAt-450;function paint(){var now=Date.now()+clockOff;if(now>=startAt){layer.hidden=true;clearInterval(startCountdownTimer);startCountdownTimer=null;startCountdownAt=0;return}layer.hidden=false;var left=Math.min(3,Math.ceil((goAt-now)/1000));var label=left>0?String(left):"VAI!";if(number.textContent!==label){number.textContent=label;number.style.animation="none";void number.offsetWidth;number.style.animation=""}}paint();startCountdownTimer=setInterval(paint,100)}
 function showLobby(){S.key="";S.round=-1;S.nextFor=-1;S.revFor=-1;show("lobby");pushPicker();$("code").textContent=R.code;$("room-sharelink").value=roomShareUrl(R.code);$("room-sharebtn").hidden=!navigator.share;renderLobbyPlayers();renderCfg()}
 function renderLobbyPlayers(){$("lobby-pl").innerHTML=players.map(function(p){return '<div class="pl'+(p.user_id===me.id?' me':'')+'"><span>'+esc(p.display_name)+(p.user_id===R.host_id?' 👑':'')+'</span></div>'}).join("")}
 function renderCfg(){
@@ -319,8 +327,8 @@ function saveCfg(o){sb.from("qr_rooms").update(o).eq("id",R.id).then(function(r)
 $("nq").onchange=function(){R.total_questions=+this.value;saveCfg({total_questions:+this.value})};
 $("tm").onchange=function(){R.answer_secs=+this.value;saveCfg({answer_secs:+this.value})};
 $("b-start").onclick=function(){
-  if(!isHost())return;var b=this;b.disabled=true;
-  sb.rpc("qr_start_game",{p_room:R.id}).then(function(r){b.disabled=false;if(r.error)toast(errMsg(r.error))});
+  if(!isHost()||startGameTimer)return;var b=this;b.disabled=true;var startAt=Date.now()+clockOff+3300;showStartCountdown(startAt);if(chan)chan.send({type:"broadcast",event:"start_countdown",payload:{startAt:startAt}});startGameTimer=setTimeout(function(){startGameTimer=null;if(!R||R.status==="playing")return;sb.rpc("qr_start_game",{p_room:R.id}).then(function(r){b.disabled=false;if(r.error)toast(errMsg(r.error))})},Math.max(0,startAt-(Date.now()+clockOff)));
+
 };
 
 /* ---------- jogo ---------- */
