@@ -15,6 +15,9 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;bac
 h1,h2,h3,.big{font-family:"Lilita One",Impact,sans-serif;font-weight:400;margin:0}
 main{position:relative;z-index:1;max-width:720px;margin:0 auto;padding:20px 16px 40px}
 main.wide{max-width:1360px}
+main.wide>h1.logo{display:none}
+.logo-sm{display:none;font:400 44px/1 "Lilita One",Impact,sans-serif;color:var(--yellow);text-shadow:3px 3px 0 var(--pink);margin:14px 0 0;text-align:center}
+main.wide .logo-sm{display:block}
 .screen{display:none}.screen.on{display:block}
 .logo{font-size:clamp(44px,12vw,72px);line-height:1;color:var(--yellow);text-shadow:4px 4px 0 var(--pink)}
 .card{background:var(--panel);border:3px solid var(--panel2);border-radius:20px;padding:18px;margin:14px 0}
@@ -82,6 +85,10 @@ select{font:800 16px Nunito,sans-serif;padding:10px;border-radius:10px;backgroun
 .msg.sys{color:var(--muted);font-size:13px;font-style:italic}
 .chatrow{display:flex;gap:8px}
 .chatrow input{margin:0;flex:1;min-width:0;width:auto}
+.sm{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px 14px;margin:0 0 12px;font-size:15px}
+.sm .row{margin-top:8px}
+.chip.streamtoggle{font-size:14px;padding:6px 12px}
+body.picker h1.logo{display:none}
 #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;z-index:20;max-width:90%;display:none}
 @media(max-width:1100px){.room{display:block;max-width:760px;margin:0 auto}#colL,#colR{position:static;max-height:none}#plist{max-height:170px;overflow-y:auto}.chatwrap{height:360px}}
 @media(prefers-reduced-motion:reduce){.btn{transition:none}.pside.up,.pside.dn{animation:none}}
@@ -105,7 +112,7 @@ select{font:800 16px Nunito,sans-serif;padding:10px;border-radius:10px;backgroun
   <div class="card">
     <div class="top"><h2 id="hello"></h2><span><a class="ghost" href="index.html">Outros jogos</a> <button class="ghost" id="b-out">Sair</button></span></div>
     <p>Crie uma sala ou entre com o código de quem está organizando.</p>
-    <div class="row"><button class="btn" id="b-new">Criar sala</button><button class="btn alt" id="b-rank">Ranking por tema</button></div>
+    <div class="row"><button class="btn" id="b-new">Criar sala</button><button class="btn alt" id="b-rank">Ranking por tema</button><button class="chip streamtoggle" type="button" aria-pressed="false">🎥 Modo streamer</button></div>
   </div>
   <div class="card">
     <h3>Entrar numa sala</h3>
@@ -132,16 +139,17 @@ select{font:800 16px Nunito,sans-serif;padding:10px;border-radius:10px;backgroun
     <button class="btn full" id="b-start" style="margin-top:12px">Começar jogo</button>
   </div>
   <div class="card" id="cfg-ro" hidden><h2>Partida</h2><p id="ro-info"></p><p class="note">Aguardando o admin começar o jogo…</p></div>
-  <p style="text-align:center"><button class="ghost" id="b-leave">Sair da sala</button></p>
+  <p style="text-align:center"><button class="chip streamtoggle" type="button" aria-pressed="false">🎥 Modo streamer</button> <button class="ghost" id="b-leave">Sair da sala</button></p>
 </section>
 
 <section id="s-game" class="screen"><div class="room">
-  <aside id="colL"><div class="card"><h3>Placar</h3><div id="plist"></div></div></aside>
+  <aside id="colL"><div class="card"><h3>Placar</h3><div id="plist"></div></div><div class="logo-sm" aria-hidden="true">QuizRush</div></aside>
   <div class="gamecol">
     <div class="card">
       <div class="top"><span class="theme" id="g-theme"></span><span id="g-count" class="note"></span><span class="big" id="g-pts" style="color:var(--yellow);font-size:26px"></span></div>
       <div class="timer"><i id="bar"></i></div>
       <div class="q" id="g-q"></div>
+      <div class="sm" id="sm" hidden>🎥 <b>Modo streamer:</b> suas respostas ficam numa janela separada, para não aparecerem na sua transmissão.<div class="row"><button class="ghost" id="b-picker" type="button">Abrir janela de respostas</button><button class="ghost" id="b-here" type="button">Responder aqui mesmo</button></div></div>
       <div class="opts" id="g-opts"></div>
       <div class="fb" id="g-fb" aria-live="polite"></div>
     </div>
@@ -159,16 +167,20 @@ select{font:800 16px Nunito,sans-serif;padding:10px;border-radius:10px;backgroun
   <div class="card"><h2>Ranking por tema</h2><div class="tabs" id="r-tabs"></div><div id="r-theme"></div>
   <button class="btn alt full" id="b-back" style="margin-top:12px">Voltar</button></div>
 </section>
+<section id="s-picker" class="screen"><div class="card"><h2>🎥 Respostas</h2><p class="note">Janela do modo streamer. Não inclua esta janela na sua transmissão.</p>
+  <div id="pk-wait" class="note">Aguardando a próxima pergunta…</div>
+  <div id="pk-box" hidden><div class="top"><span class="theme" id="pk-theme"></span><span class="note" id="pk-count"></span></div><div class="timer"><i id="pk-bar"></i></div><div class="q" id="pk-q"></div><div class="opts" id="pk-opts"></div><div class="fb" id="pk-fb"></div></div></div></section>
 </main>
 <div id="toast" role="status"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 var SB_URL="https://mqnwstppbzrdjygvgzbj.supabase.co",SB_KEY="sb_publishable_wIJ5uBrN_i1n-VMqoMYJ8A_Li12UJh6";
-var sb=window.supabase.createClient(SB_URL,SB_KEY);
-var THEMES=["Geografia","História","Música","Games","Animes"];
+var PICKER=new URLSearchParams(location.search).has("picker");
+var sb=PICKER?null:window.supabase.createClient(SB_URL,SB_KEY);
+var THEMES=["Geografia","História","Música","Games","Animes","Futebol","Basquete","Arte","Tecnologia","Cinema e TV","Reino Animal","Cultura POP","Comidas e Bebidas","Super-heróis","Espaço","Mitologia","Literatura","Fórmula 1 e automobilismo","Memes e Internet"];
 var ERR={escolha_um_tema:"Escolha pelo menos um tema.",sem_perguntas:"Não há perguntas para esses temas.",somente_admin:"Só o admin pode fazer isso.",partida_em_andamento:"A partida já está em andamento.",sala_nao_encontrada:"Sala não encontrada. Confira o código.",tempo_esgotado:"Tempo esgotado.",fora_da_pergunta:"Não há pergunta aberta agora.",login_necessario:"Entre com a Twitch primeiro."};
-var me=null,R=null,players=[],answered=new Set(),chan=null,tick=null,chatIds={},S={},els={},prevRank={},prevScore={},plT=null,toastT=null;
+var clockOff=0,me=null,R=null,players=[],answered=new Set(),chan=null,tick=null,chatIds={},S={},els={},prevRank={},prevScore={},plT=null,toastT=null;
 
 function $(i){return document.getElementById(i)}
 function esc(t){var d=document.createElement("div");d.textContent=t==null?"":String(t);return d.innerHTML}
@@ -189,8 +201,10 @@ function setUser(u){
   var c=new URLSearchParams(location.search).get("sala");
   if(c&&!R){history.replaceState(null,"",location.pathname);joinCode(c)}else if(!R)show("home");
 }
-sb.auth.getSession().then(function(r){setUser(r.data.session?r.data.session.user:null)});
-sb.auth.onAuthStateChange(function(ev,s){var u=s?s.user:null;if((u&&u.id)!==(me&&me.id))setUser(u)});
+if(!PICKER){
+  sb.auth.getSession().then(function(r){setUser(r.data.session?r.data.session.user:null)});
+  sb.auth.onAuthStateChange(function(ev,s){var u=s?s.user:null;if((u&&u.id)!==(me&&me.id))setUser(u)});
+}
 
 /* ---------- home ---------- */
 $("b-new").onclick=function(){
@@ -208,16 +222,17 @@ $("b-back").onclick=function(){show("home")};
 
 /* ---------- sala ---------- */
 function leaveRoom(){if(chan){sb.removeChannel(chan);chan=null}clearInterval(tick);R=null;players=[];answered=new Set();S={};els={};prevRank={};prevScore={};chatIds={}}
-$("b-leave").onclick=function(){leaveRoom();show("home")};
+$("b-leave").onclick=function(){leaveRoom();show("home");pushPicker()};
 function enterRoom(id){
   leaveRoom();
   sb.from("qr_rooms").select("*").eq("id",id).single().then(function(r){
     if(r.error){toast(errMsg(r.error));show("home");return}
     R=r.data;S={round:-1,key:"",back:false,myChoice:null,scoreBefore:0,localDeadline:0,nextFor:-1,revFor:-1};
     $("chatlog").innerHTML="";$("plist").innerHTML="";
-    Promise.all([loadPlayers(),loadAnswered(),loadChat()]).then(function(){subscribe(id);onRoom()});
+    Promise.all([syncClock(),loadPlayers(),loadAnswered(),loadChat()]).then(function(){subscribe(id);onRoom()});
   });
 }
+function syncClock(){var t0=Date.now();return sb.rpc("qr_now").then(function(r){if(!r.error&&r.data)clockOff=new Date(r.data).getTime()-(t0+Date.now())/2})}
 function loadPlayers(){return sb.from("qr_players").select("user_id,display_name,avatar_url,score").eq("room_id",R.id).order("joined_at").then(function(r){if(!r.error){players=r.data;afterPlayers()}})}
 function loadAnswered(){return sb.from("qr_answered").select("user_id").eq("room_id",R.id).eq("round",R.round).then(function(r){if(!r.error)answered=new Set(r.data.map(function(x){return x.user_id}))})}
 function loadChat(){return sb.from("qr_chat").select("id,user_id,author,body").eq("room_id",R.id).order("id",{ascending:false}).limit(50).then(function(r){if(!r.error)r.data.reverse().forEach(addChat)})}
@@ -246,12 +261,16 @@ function afterPlayers(){
 }
 
 /* ---------- lobby ---------- */
-function showLobby(){S.key="";S.round=-1;S.nextFor=-1;S.revFor=-1;show("lobby");$("code").textContent=R.code;renderLobbyPlayers();renderCfg()}
+function showLobby(){S.key="";S.round=-1;S.nextFor=-1;S.revFor=-1;show("lobby");pushPicker();$("code").textContent=R.code;renderLobbyPlayers();renderCfg()}
 function renderLobbyPlayers(){$("lobby-pl").innerHTML=players.map(function(p){return '<div class="pl'+(p.user_id===me.id?' me':'')+'"><span>'+esc(p.display_name)+(p.user_id===R.host_id?' 👑':'')+'</span></div>'}).join("")}
 function renderCfg(){
   var host=isHost();$("cfg").hidden=!host;$("cfg-ro").hidden=host;
   if(host){
     $("chips").innerHTML="";
+    var all=THEMES.every(function(t){return R.themes.indexOf(t)>-1}),ab=document.createElement("button");
+    ab.className="chip"+(all?" on":"");ab.textContent="Todos";ab.setAttribute("aria-pressed",all);
+    ab.onclick=function(){var a=all?[]:THEMES.slice();R.themes=a;renderCfg();saveCfg({themes:a})};
+    $("chips").appendChild(ab);
     THEMES.forEach(function(t){var on=R.themes.indexOf(t)>-1,b=document.createElement("button");b.className="chip"+(on?" on":"");b.textContent=t;b.setAttribute("aria-pressed",on);b.onclick=function(){var a=R.themes.slice(),k=a.indexOf(t);if(k>-1)a.splice(k,1);else a.push(t);R.themes=a;renderCfg();saveCfg({themes:a})};$("chips").appendChild(b)});
     $("nq").value=R.total_questions;$("tm").value=R.answer_secs;
   }else{
@@ -276,25 +295,27 @@ function showGame(){
 }
 function beginQuestion(){
   clearInterval(tick);var q=R.current;
-  S.myChoice=null;S.scoreBefore=myScore();S.revFor=-1;
-  $("g-theme").textContent=q.theme;$("g-count").textContent=R.round+" de "+R.question_ids.length;$("g-pts").textContent=myScore()+" pts";
+  S.myChoice=null;S.scoreBefore=myScore();S.revFor=-1;S.nextFor=-1;S.here=false;
+  $("g-theme").textContent=q.theme;var d=q.difficulty||1;$("g-count").textContent=R.round+" de "+R.question_ids.length+" · "+"★".repeat(d)+"☆".repeat(5-d);$("g-count").title="Nível "+d+" de 5";$("g-pts").textContent=myScore()+" pts";
   $("g-q").textContent=q.body;$("g-fb").textContent="";$("g-opts").innerHTML="";
   var done=answered.has(me.id);
-  q.options.forEach(function(o,i){var b=document.createElement("button");b.className="opt";b.textContent=o;b.disabled=done;b.onclick=function(){pick(i,b)};$("g-opts").appendChild(b)});
+  q.options.forEach(function(o,i){var b=document.createElement("button");b.className="opt";b.textContent=o;b.disabled=done||streamActive();b.onclick=function(){pick(i,b)};$("g-opts").appendChild(b)});
   if(done)$("g-fb").textContent="Resposta enviada. Aguardando o tempo acabar.";
-  var rem=new Date(R.deadline_at).getTime()-Date.now();
+  var rem=new Date(R.deadline_at).getTime()-(Date.now()+clockOff);
   S.localDeadline=Date.now()+Math.min(rem,R.answer_secs*1000);
   tick=setInterval(function(){
     var left=S.localDeadline-Date.now();
     $("bar").style.transform="scaleX("+Math.max(0,left/(R.answer_secs*1000))+")";
     if(left<=0){clearInterval(tick);hostReveal(0)}
   },100);
+  updateStreamUI();pushPicker();
 }
 function pick(i,btn){
   if(S.myChoice!==null||!R||R.phase!=="question")return;
-  S.myChoice=i;document.querySelectorAll(".opt").forEach(function(b){b.disabled=true});btn.classList.add("sel");
+  btn=btn||$("g-opts").children[i];
+  S.myChoice=i;document.querySelectorAll("#g-opts .opt").forEach(function(b){b.disabled=true});if(!streamActive())btn.classList.add("sel");
   $("g-fb").textContent="Resposta enviada. Aguardando o tempo acabar.";
-  answered.add(me.id);renderBoard();
+  answered.add(me.id);renderBoard();pushPicker();
   sb.rpc("qr_submit_answer",{p_room:R.id,p_choice:i}).then(function(r){if(r.error)toast(errMsg(r.error))});
 }
 function hostReveal(n){
@@ -312,14 +333,14 @@ function beginReveal(){
   clearInterval(tick);$("bar").style.transform="scaleX(0)";
   var ok=R.current_correct;
   document.querySelectorAll(".opt").forEach(function(b,i){b.disabled=true;if(i===ok)b.classList.add("ok");else if(i===S.myChoice)b.classList.add("no")});
-  updateFeedback();
+  updateFeedback();updateStreamUI();pushPicker();
   if(isHost()&&S.nextFor!==R.round){S.nextFor=R.round;var rd=R.round;setTimeout(function(){if(R&&R.round===rd&&R.phase==="reveal")sb.rpc("qr_next",{p_room:R.id}).then(function(r){if(r.error)toast(errMsg(r.error))})},3200)}
 }
 function updateFeedback(){
   if(!R||R.phase!=="reveal")return;
   var gain=myScore()-S.scoreBefore;
   $("g-fb").textContent=S.myChoice===null?"Tempo esgotado. +0 pontos":(S.myChoice===R.current_correct?"Acertou! +"+gain+" pontos":"Errou. +0 pontos");
-  $("g-pts").textContent=myScore()+" pts";
+  $("g-pts").textContent=myScore()+" pts";pushPicker();
 }
 
 /* ---------- placar ---------- */
@@ -357,9 +378,75 @@ function sendChat(){
 $("chatsend").onclick=sendChat;
 $("chatin").onkeydown=function(e){if(e.key==="Enter")sendChat()};
 
+/* ---------- modo streamer ---------- */
+var bc=null,pickWin=null,pkS=null;
+try{bc=new BroadcastChannel("qr-picker")}catch(e){}
+function streamerOn(){try{return localStorage.getItem("qr_streamer")==="1"}catch(e){return false}}
+function streamActive(){return streamerOn()&&!S.here}
+function popOpen(){return !!(pickWin&&!pickWin.closed)}
+function setStreamer(on){try{localStorage.setItem("qr_streamer",on?"1":"0")}catch(e){}paintStream();applyStreamToOpts()}
+function paintStream(){document.querySelectorAll(".streamtoggle").forEach(function(b){b.classList.toggle("on",streamerOn());b.setAttribute("aria-pressed",streamerOn()?"true":"false")});updateStreamUI()}
+function applyStreamToOpts(){
+  if(!R||R.phase!=="question")return;
+  var lock=streamActive()||S.myChoice!==null||answered.has(me.id);
+  document.querySelectorAll("#g-opts .opt").forEach(function(b){b.disabled=lock});
+}
+function updateStreamUI(){
+  var on=!!(R&&R.phase==="question"&&$("s-game").classList.contains("on")&&streamActive());
+  $("sm").hidden=!on;
+  if(on)$("b-picker").textContent=popOpen()?"Mostrar janela de respostas":"Abrir janela de respostas";
+}
+function openPicker(){
+  if(popOpen()){pickWin.focus();return}
+  pickWin=window.open(location.pathname+"?picker=1","qrpicker","width=520,height=680");
+  if(!pickWin){toast("O navegador bloqueou a janela. Permita pop-ups para este site.");return}
+  setTimeout(updateStreamUI,600);
+}
+function pushPicker(){
+  if(!bc||PICKER)return;
+  var g=R&&R.current&&$("s-game").classList.contains("on");
+  bc.postMessage(g?{t:"state",phase:R.phase,round:R.round,total:R.question_ids.length,theme:R.current.theme,body:R.current.body,options:R.current.options,correct:R.phase==="reveal"?R.current_correct:null,choice:S.myChoice,dl:S.localDeadline,secs:R.answer_secs,fb:$("g-fb").textContent}:{t:"state",phase:"idle"});
+}
+if(bc)bc.onmessage=function(e){
+  var m=e.data||{};
+  if(PICKER){if(m.t==="state"){pkS=m;pkRender()}return}
+  if(m.t==="hello")pushPicker();
+  else if(m.t==="pick"&&R&&R.phase==="question"&&m.round===R.round&&streamerOn())pick(m.i);
+};
+document.querySelectorAll(".streamtoggle").forEach(function(b){b.onclick=function(){setStreamer(!streamerOn())}});
+$("b-picker").onclick=openPicker;
+$("b-here").onclick=function(){S.here=true;updateStreamUI();applyStreamToOpts()};
+paintStream();
+
+/* janela de respostas (?picker=1): só mostra as opções e devolve o clique à janela principal */
+function pkRender(){
+  var s=pkS,live=!!(s&&s.phase!=="idle");
+  $("pk-wait").hidden=live;$("pk-box").hidden=!live;
+  if(!live)return;
+  $("pk-theme").textContent=s.theme;$("pk-count").textContent=s.round+" de "+s.total;$("pk-q").textContent=s.body;
+  var box=$("pk-opts");box.innerHTML="";
+  s.options.forEach(function(o,i){
+    var b=document.createElement("button");b.className="opt";b.textContent=o;
+    b.disabled=s.phase!=="question"||s.choice!==null;
+    if(s.phase==="reveal"){if(i===s.correct)b.classList.add("ok");else if(i===s.choice)b.classList.add("no")}
+    else if(i===s.choice)b.classList.add("sel");
+    b.onclick=function(){bc.postMessage({t:"pick",round:s.round,i:i});s.choice=i;pkRender()};
+    box.appendChild(b);
+  });
+  $("pk-fb").textContent=s.fb||"";
+}
+if(PICKER){
+  document.body.classList.add("picker");document.title="QuizRush – Respostas";show("picker");
+  setInterval(function(){
+    var s=pkS;if(!s)return;
+    $("pk-bar").style.transform=s.phase==="question"?"scaleX("+Math.max(0,(s.dl-Date.now())/(s.secs*1000))+")":(s.phase==="reveal"?"scaleX(0)":"scaleX(1)");
+  },100);
+  if(bc)bc.postMessage({t:"hello"});
+}
+
 /* ---------- fim e ranking ---------- */
 function showEnd(){
-  show("end");
+  show("end");pushPicker();
   var list=players.slice().sort(function(a,b){return b.score-a.score});
   $("e-board").innerHTML=list.map(function(p,i){return '<div class="pl'+(p.user_id===me.id?' me':'')+'"><span>'+(i+1)+'º '+esc(p.display_name)+(p.user_id===R.host_id?' 👑':'')+'</span><span class="pts">'+p.score+'</span></div>'}).join("");
 }
