@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 10433)
+Total output lines: 552
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -80,6 +83,11 @@ select{font:800 16px Nunito,sans-serif;padding:10px;border-radius:10px;backgroun
 .opt.sel{border-color:var(--yellow)}
 .opt.ok{background:var(--green);color:#06260f}
 .opt.no{background:var(--red)}
+.choice-avatars{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;min-height:28px}
+.choice-avatars[hidden]{display:none}
+.choice-avatar{display:inline-flex;flex:none}
+.choice-avatar .avatar{width:28px;height:28px;font-size:13px;box-shadow:0 0 0 2px rgba(255,255,255,.18)}
+.choice-extra{font:800 12px Nunito,sans-serif;color:var(--muted);background:rgba(7,7,13,.45);border-radius:999px;padding:4px 8px}
 .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
 .tab{font:800 15px Nunito,sans-serif;background:var(--bg);color:var(--muted);border:3px solid var(--panel2);border-radius:10px;padding:6px 12px;cursor:pointer}
 .tab.on{background:var(--yellow);color:#2b2100;border-color:var(--yellow)}
@@ -231,39 +239,14 @@ var sb=PICKER?null:window.supabase.createClient(SB_URL,SB_KEY);
 var THEMES=["Geografia","História","Música","Games","Animes","Futebol","Basquete","Arte","Tecnologia","Cinema e TV","Reino Animal","Cultura POP","Comidas e Bebidas","Super-heróis","Espaço","Mitologia","Literatura","Fórmula 1 e automobilismo","Memes e Internet"];
 var ERR={escolha_um_tema:"Escolha pelo menos um tema.",sem_perguntas:"Não há perguntas para esses temas.",somente_admin:"Só o admin pode fazer isso.",partida_em_andamento:"A partida já está em andamento.",sala_nao_encontrada:"Sala não encontrada. Confira o código.",tempo_esgotado:"Tempo esgotado.",fora_da_pergunta:"Não há pergunta aberta agora.",login_necessario:"Entre com a Twitch primeiro."};
 var clockOff=0,me=null,R=null,players=[],answered=new Set(),chan=null,tick=null,chatIds={},S={},els={},prevRank={},prevScore={},plT=null,toastT=null,startCountdownTimer=null,startGameTimer=null,startCountdownAt=0;
+var revealChoices=[],revealFetchKey='';
 
 function $(i){return document.getElementById(i)}
 function esc(t){var d=document.createElement("div");d.textContent=t==null?"":String(t);return d.innerHTML}
 function errMsg(e){var m=(e&&e.message)||"";for(var k in ERR)if(m.indexOf(k)>-1)return ERR[k];return "Algo deu errado. Tente de novo."}
 function toast(t){var e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toastT);toastT=setTimeout(function(){e.style.display="none"},3500)}
 function show(id){document.querySelectorAll(".screen").forEach(function(s){s.classList.remove("on")});$("s-"+id).classList.add("on");$("main").classList.toggle("wide",id==="game");$("main").classList.toggle("home",id==="home");window.scrollTo(0,0)}
-function isHost(){return R&&me&&R.host_id===me.id}
-function myScore(){var p=players.filter(function(x){return x.user_id===me.id})[0];return p?p.score:0}
-function avatarHtml(p){var initial=esc(((p.display_name||"?").trim().charAt(0)||"?").toUpperCase()),url=p.avatar_url||(me&&p.user_id===me.id?me.avatar:null);return url?'<span class="avatar"><img src="'+esc(url)+'" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="fallback" hidden>'+initial+'</span></span>':'<span class="avatar">'+initial+'</span>'}
-
-/* ---------- login ---------- */
-$("b-login").onclick=function(){sb.auth.signInWithOAuth({provider:"twitch",options:{redirectTo:location.origin+location.pathname+location.search}})};
-$("b-out").onclick=function(){sb.auth.signOut()};
-function setUser(u){
-  if(!u){me=null;leaveRoom();show("login");return}
-  var m=u.user_metadata||{};
-  me={id:u.id,name:m.preferred_username||m.user_name||m.name||m.full_name||"Jogador",avatar:m.avatar_url||m.picture||null};
-  $("hello").textContent="Olá, "+me.name+"!";
-  var c=new URLSearchParams(location.search).get("sala");
-  if(c&&!R){history.replaceState(null,"",location.pathname);joinCode(c)}else if(!R)show("home");
-}
-if(!PICKER){
-  sb.auth.getSession().then(function(r){setUser(r.data.session?r.data.session.user:null)});
-  sb.auth.onAuthStateChange(function(ev,s){var u=s?s.user:null;if((u&&u.id)!==(me&&me.id))setUser(u)});
-}
-
-/* ---------- home ---------- */
-$("b-new").onclick=function(){
-  this.disabled=true;var b=this;
-  sb.rpc("qr_create_room",{p_themes:[],p_total:8,p_secs:15}).then(function(r){b.disabled=false;if(r.error)return toast(errMsg(r.error));enterRoom(r.data.id)});
-};
-function joinCode(c){
-  c=String(c).trim().toUpperCase();if(c.length<4)return toast("Digite o código de 4 letras.");
+function isH…433 tokens truncated…)return toast("Digite o código de 4 letras.");
   sb.rpc("qr_join_room",{p_code:c}).then(function(r){if(r.error){toast(errMsg(r.error));if(!R)show("home");return}enterRoom(r.data)});
 }
 $("b-join").onclick=function(){joinCode($("code-in").value)};
@@ -275,7 +258,7 @@ $("room-copylink").onclick=async function(){var input=$("room-sharelink");try{aw
 $("room-sharebtn").onclick=function(){if(!navigator.share)return;navigator.share({title:"QuizRush",text:"Entre na minha sala do QuizRush!",url:$("room-sharelink").value}).catch(function(){})};
 
 /* ---------- sala ---------- */
-function leaveRoom(){if(chan){sb.removeChannel(chan);chan=null}clearInterval(tick);clearInterval(startCountdownTimer);clearTimeout(startGameTimer);startCountdownAt=0;$("start-countdown").hidden=true;R=null;players=[];answered=new Set();S={};els={};prevRank={};prevScore={};chatIds={}}
+function leaveRoom(){if(chan){sb.removeChannel(chan);chan=null}clearInterval(tick);clearInterval(startCountdownTimer);clearTimeout(startGameTimer);startCountdownAt=0;revealChoices=[];revealFetchKey="";$("start-countdown").hidden=true;R=null;players=[];answered=new Set();S={};els={};prevRank={};prevScore={};chatIds={}}
 $("b-leave").onclick=function(){leaveRoom();show("home");pushPicker()};
 function enterRoom(id){
   leaveRoom();
@@ -351,7 +334,7 @@ function showGame(){
 }
 function beginQuestion(){
   clearInterval(tick);var q=R.current;
-  S.myChoice=null;S.scoreBefore=myScore();S.revFor=-1;S.nextFor=-1;S.here=false;
+  S.myChoice=null;S.scoreBefore=myScore();S.revFor=-1;S.nextFor=-1;S.here=false;revealChoices=[];revealFetchKey="";
   $("g-theme").textContent=q.theme;var d=q.difficulty||1;$("g-count").textContent=R.round+" de "+R.question_ids.length+" · "+"★".repeat(d)+"☆".repeat(5-d);$("g-count").title="Nível "+d+" de 5";$("g-pts").textContent=myScore()+" pts";
   $("g-q").textContent=q.body;$("g-fb").textContent="";$("g-opts").innerHTML="";
   var done=answered.has(me.id);
@@ -385,11 +368,36 @@ function hostReveal(n){
 function checkAllAnswered(){
   if(R&&R.phase==="question"&&isHost()&&players.length&&answered.size>=players.length)hostReveal(0);
 }
+function renderChoiceAvatars(){
+  if(!R||R.phase!=="reveal")return;
+  var buttons=$("g-opts").querySelectorAll(".opt");
+  buttons.forEach(function(b,i){
+    var selectedIds=new Set(revealChoices.filter(function(a){return Number(a.choice)===i}).map(function(a){return a.user_id}));
+    var chosen=players.filter(function(p){return selectedIds.has(p.user_id)}),row=b.querySelector(".choice-avatars");
+    if(!row){row=document.createElement("div");row.className="choice-avatars";b.appendChild(row)}
+    var visible=chosen.slice(0,5),extra=chosen.length-visible.length;
+    row.innerHTML=visible.map(function(p){return '<span class="choice-avatar" title="'+esc(p.display_name)+'">'+avatarHtml(p)+'</span>'}).join("")+(extra?'<span class="choice-extra">+'+extra+'</span>':'');
+    row.hidden=chosen.length===0;
+    var option=(R.current.options[i]||"Opção "+(i+1));
+    b.setAttribute("aria-label",option+". "+(chosen.length?"Escolheram: "+chosen.slice(0,5).map(function(p){return p.display_name}).join(", ")+(extra?" e mais "+extra+" jogadores":""):"Ninguém escolheu esta opção"));
+  });
+}
+function loadRevealChoices(){
+  if(!R)return;
+  var id=R.id,round=R.round,key=id+":"+round;
+  if(revealFetchKey===key)return;
+  revealFetchKey=key;
+  sb.from("qr_answers").select("user_id,choice").eq("room_id",id).eq("round",round).then(function(r){
+    if(r.error||!R||R.id!==id||R.round!==round||R.phase!=="reveal")return;
+    revealChoices=r.data||[];renderChoiceAvatars();
+  });
+}
 function beginReveal(){
+  loadRevealChoices();
   clearInterval(tick);$("bar").style.transform="scaleX(0)";
   var ok=R.current_correct;
   document.querySelectorAll(".opt").forEach(function(b,i){b.disabled=true;if(i===ok)b.classList.add("ok");else if(i===S.myChoice)b.classList.add("no")});
-  updateFeedback();updateStreamUI();pushPicker();
+  renderChoiceAvatars();updateFeedback();updateStreamUI();pushPicker();
   if(isHost()&&S.nextFor!==R.round){S.nextFor=R.round;var rd=R.round;setTimeout(function(){if(R&&R.round===rd&&R.phase==="reveal")sb.rpc("qr_next",{p_room:R.id}).then(function(r){if(r.error)toast(errMsg(r.error))})},3200)}
 }
 function updateFeedback(){
