@@ -276,7 +276,7 @@ footer#supportBar{display:flex;flex-direction:column;align-items:center;gap:12px
 .rkgrid b{display:block;font-size:1.25rem;color:var(--ac2)}
 .rkmini{margin:6px 0;font-size:.92rem}
 .topnav{display:flex;gap:8px;align-items:center;padding:10px 12px;margin:-20px -20px 14px;background:rgba(10,10,22,.75);backdrop-filter:blur(12px);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:20}
-.navb{background:rgba(255,255,255,.07);color:var(--tx);border:1px solid var(--bd);box-shadow:none;padding:8px 16px}
+.navb{background:rgba(255,255,255,.07);color:var(--tx);border:1px solid var(--bd);box-shadow:none;padding:8px 16px;text-decoration:none;display:inline-flex;align-items:center;font:inherit}
 .navb.on{background:linear-gradient(135deg,#c4a6ff,#7fe9ff);color:#0b0b18;border-color:transparent}
 .navback{margin-bottom:12px}
 .admin-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -315,6 +315,7 @@ footer#supportBar{display:flex;flex-direction:column;align-items:center;gap:12px
 <nav id="topnav" hidden class="topnav" aria-label="Navegação">
   <button class="navb" data-v="perfil">👤 Perfil</button>
   <button class="navb" data-v="ranking">🏆 Ranking</button>
+  <a class="navb" href="index.html">🎮 Outros jogos</a>
   <button class="navb" data-v="admin" hidden>📊 Admin</button>
 </nav>
 <div id="shell">
@@ -788,7 +789,7 @@ function show(v){
   ['login','home','room','stats'].forEach(x=>$('v-'+x).hidden=x!==v);
   $('shell').classList.toggle('room',v==='room');$('colL').hidden=$('colR').hidden=v!=='room';
   $('topnav').hidden=v==='room';
-  document.querySelectorAll('.navb').forEach(b=>{b.hidden=(!user&&b.dataset.v==='perfil')||(b.dataset.v==='admin'&&!IS_ADMIN);b.classList.toggle('on',v==='stats'&&b.dataset.v===statsTab)});
+  document.querySelectorAll('.navb[data-v]').forEach(b=>{b.hidden=(!user&&b.dataset.v==='perfil')||(b.dataset.v==='admin'&&!IS_ADMIN);b.classList.toggle('on',v==='stats'&&b.dataset.v===statsTab)});
   clearInterval(publicRoomsTimer);publicRoomsTimer=null;
   if(v==='home'&&user){loadPublicRooms();publicRoomsTimer=setInterval(()=>{if(user&&!ROOM_ID&&!$('v-home').hidden)loadPublicRooms()},20000)}
 }
@@ -801,7 +802,7 @@ function openStats(tab){
   show('stats');
   if(tab==='perfil')loadMyProfile();else if(tab==='ranking')loadRanking(rkKind);else loadAdminStats();
 }
-document.querySelectorAll('.navb').forEach(b=>b.onclick=()=>openStats(b.dataset.v));
+document.querySelectorAll('.navb[data-v]').forEach(b=>b.onclick=()=>openStats(b.dataset.v));
 $('statsBack').onclick=()=>show(user?'home':'login');
 /* ---------- modo streamer: a escolha da música acontece numa janela separada ---------- */
 const streamerOn=()=>{try{return localStorage.getItem('pdv_streamer')==='1'}catch(e){return false}};
