@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 10433)
-Total output lines: 552
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -70,7 +67,7 @@ select{font:800 16px Nunito,sans-serif;padding:10px;border-radius:10px;backgroun
 .pl{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:12px;background:var(--bg);margin:6px 0}
 .pl.me{border:3px solid var(--yellow)}
 .pl .pts{color:var(--yellow);font-family:"Lilita One",Impact,sans-serif;font-size:20px}
-.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .timer{height:16px;border-radius:99px;background:var(--bg);overflow:hidden;margin:12px 0}
 .timer i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));transform-origin:left}
 .theme{display:inline-block;background:var(--pink);border-radius:99px;padding:3px 12px;font-size:14px}
@@ -196,14 +193,14 @@ body.picker h1.logo{display:none}
     <button class="btn full" id="b-start" style="margin-top:12px">Começar jogo</button>
   </div>
   <div class="card" id="cfg-ro" hidden><h2>Partida</h2><p id="ro-info"></p><p class="note">Aguardando o admin começar o jogo…</p></div>
-  <p style="text-align:center"><button class="chip streamtoggle" type="button" aria-pressed="false">🎥 Modo streamer</button> <button class="ghost" id="b-leave">Sair da sala</button></p>
+  <p style="text-align:center"><button class="chip streamtoggle" type="button" aria-pressed="false">🎥 Modo streamer</button> <button class="ghost sound-toggle" type="button" aria-pressed="false">🔊 Som ligado</button> <button class="ghost" id="b-leave">Sair da sala</button></p>
 </section>
 
 <section id="s-game" class="screen"><div class="room">
   <aside id="colL"><div class="card"><h3>Placar</h3><div id="plist"></div></div><div class="logo-sm" aria-hidden="true">QuizRush</div></aside>
   <div class="gamecol">
     <div class="card">
-      <div class="top"><span class="theme" id="g-theme"></span><span id="g-count" class="note"></span><span class="big" id="g-pts" style="color:var(--yellow);font-size:26px"></span></div>
+      <div class="top"><span class="theme" id="g-theme"></span><span id="g-count" class="note"></span><span class="big" id="g-pts" style="color:var(--yellow);font-size:26px"></span><button class="ghost sound-toggle" type="button" aria-pressed="false">🔊 Som ligado</button></div>
       <div class="timer"><i id="bar"></i></div>
       <div class="q" id="g-q"></div>
       <div class="sm" id="sm" hidden>🎥 <b>Modo streamer:</b> suas respostas ficam numa janela separada, para não aparecerem na sua transmissão.<div class="row"><button class="ghost" id="b-picker" type="button">Abrir janela de respostas</button><button class="ghost" id="b-here" type="button">Responder aqui mesmo</button></div></div>
@@ -245,8 +242,40 @@ function $(i){return document.getElementById(i)}
 function esc(t){var d=document.createElement("div");d.textContent=t==null?"":String(t);return d.innerHTML}
 function errMsg(e){var m=(e&&e.message)||"";for(var k in ERR)if(m.indexOf(k)>-1)return ERR[k];return "Algo deu errado. Tente de novo."}
 function toast(t){var e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toastT);toastT=setTimeout(function(){e.style.display="none"},3500)}
+var fxAudio=null,fxMuted=false;
+try{fxMuted=localStorage.getItem("qr_sound_muted")==="1"}catch(e){}
+function fxTone(freq,duration,delay){try{fxAudio=fxAudio||(window.AudioContext?new AudioContext():new webkitAudioContext());if(fxAudio.state==="suspended")fxAudio.resume().catch(function(){});var o=fxAudio.createOscillator(),g=fxAudio.createGain(),t=fxAudio.currentTime+(delay||0);o.type="sine";o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.14,t+.015);g.gain.exponentialRampToValueAtTime(.001,t+duration);o.connect(g);g.connect(fxAudio.destination);o.start(t);o.stop(t+duration+.02)}catch(e){}}
+function fx(kind){if(fxMuted)return;if(kind==="select")fxTone(560,.07,0);else if(kind==="count")fxTone(440,.12,0);else if(kind==="go"){fxTone(740,.15,0);fxTone(990,.24,.13)}else if(kind==="correct"){fxTone(660,.12,0);fxTone(880,.18,.12)}else if(kind==="wrong"){fxTone(300,.14,0);fxTone(220,.19,.13)}else if(kind==="timeout")fxTone(330,.2,0)}
+function updateSoundControls(){document.querySelectorAll(".sound-toggle").forEach(function(b){b.textContent=fxMuted?"🔇 Som desligado":"🔊 Som ligado";b.setAttribute("aria-pressed",String(fxMuted));b.title=fxMuted?"Ligar efeitos sonoros":"Desligar efeitos sonoros"})}
+document.querySelectorAll(".sound-toggle").forEach(function(b){b.onclick=function(){fxMuted=!fxMuted;try{localStorage.setItem("qr_sound_muted",fxMuted?"1":"0")}catch(e){}updateSoundControls();if(!fxMuted)fx("select")}});updateSoundControls();
 function show(id){document.querySelectorAll(".screen").forEach(function(s){s.classList.remove("on")});$("s-"+id).classList.add("on");$("main").classList.toggle("wide",id==="game");$("main").classList.toggle("home",id==="home");window.scrollTo(0,0)}
-function isH…433 tokens truncated…)return toast("Digite o código de 4 letras.");
+function isHost(){return R&&me&&R.host_id===me.id}
+function myScore(){var p=players.filter(function(x){return x.user_id===me.id})[0];return p?p.score:0}
+function avatarHtml(p){var initial=esc(((p.display_name||"?").trim().charAt(0)||"?").toUpperCase()),url=p.avatar_url||(me&&p.user_id===me.id?me.avatar:null);return url?'<span class="avatar"><img src="'+esc(url)+'" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="fallback" hidden>'+initial+'</span></span>':'<span class="avatar">'+initial+'</span>'}
+
+/* ---------- login ---------- */
+$("b-login").onclick=function(){sb.auth.signInWithOAuth({provider:"twitch",options:{redirectTo:location.origin+location.pathname+location.search}})};
+$("b-out").onclick=function(){sb.auth.signOut()};
+function setUser(u){
+  if(!u){me=null;leaveRoom();show("login");return}
+  var m=u.user_metadata||{};
+  me={id:u.id,name:m.preferred_username||m.user_name||m.name||m.full_name||"Jogador",avatar:m.avatar_url||m.picture||null};
+  $("hello").textContent="Olá, "+me.name+"!";
+  var c=new URLSearchParams(location.search).get("sala");
+  if(c&&!R){history.replaceState(null,"",location.pathname);joinCode(c)}else if(!R)show("home");
+}
+if(!PICKER){
+  sb.auth.getSession().then(function(r){setUser(r.data.session?r.data.session.user:null)});
+  sb.auth.onAuthStateChange(function(ev,s){var u=s?s.user:null;if((u&&u.id)!==(me&&me.id))setUser(u)});
+}
+
+/* ---------- home ---------- */
+$("b-new").onclick=function(){
+  this.disabled=true;var b=this;
+  sb.rpc("qr_create_room",{p_themes:[],p_total:8,p_secs:15}).then(function(r){b.disabled=false;if(r.error)return toast(errMsg(r.error));enterRoom(r.data.id)});
+};
+function joinCode(c){
+  c=String(c).trim().toUpperCase();if(c.length<4)return toast("Digite o código de 4 letras.");
   sb.rpc("qr_join_room",{p_code:c}).then(function(r){if(r.error){toast(errMsg(r.error));if(!R)show("home");return}enterRoom(r.data)});
 }
 $("b-join").onclick=function(){joinCode($("code-in").value)};
@@ -299,7 +328,7 @@ function afterPlayers(){
 }
 
 /* ---------- lobby ---------- */
-function showStartCountdown(startAt){if(!startAt||startCountdownAt===startAt)return;startCountdownAt=startAt;clearInterval(startCountdownTimer);var layer=$("start-countdown"),number=$("start-countdown-number"),goAt=startAt-450;function paint(){var now=Date.now()+clockOff;if(now>=startAt){layer.hidden=true;clearInterval(startCountdownTimer);startCountdownTimer=null;startCountdownAt=0;return}layer.hidden=false;var left=Math.min(3,Math.ceil((goAt-now)/1000));var label=left>0?String(left):"VAI!";if(number.textContent!==label){number.textContent=label;number.style.animation="none";void number.offsetWidth;number.style.animation=""}}paint();startCountdownTimer=setInterval(paint,100)}
+function showStartCountdown(startAt){if(!startAt||startCountdownAt===startAt)return;startCountdownAt=startAt;clearInterval(startCountdownTimer);var layer=$("start-countdown"),number=$("start-countdown-number"),goAt=startAt-450;number.textContent="";function paint(){var now=Date.now()+clockOff;if(now>=startAt){layer.hidden=true;clearInterval(startCountdownTimer);startCountdownTimer=null;startCountdownAt=0;return}layer.hidden=false;var left=Math.min(3,Math.ceil((goAt-now)/1000));var label=left>0?String(left):"VAI!";if(number.textContent!==label){number.textContent=label;number.style.animation="none";void number.offsetWidth;number.style.animation="";fx(label==="VAI!"?"go":"count")}}paint();startCountdownTimer=setInterval(paint,100)}
 function showLobby(){S.key="";S.round=-1;S.nextFor=-1;S.revFor=-1;show("lobby");pushPicker();$("code").textContent=R.code;$("room-sharelink").value=roomShareUrl(R.code);$("room-sharebtn").hidden=!navigator.share;renderLobbyPlayers();renderCfg()}
 function renderLobbyPlayers(){$("lobby-pl").innerHTML=players.map(function(p){return '<div class="pl'+(p.user_id===me.id?' me':'')+'"><span class="score-player">'+avatarHtml(p)+'<span>'+esc(p.display_name)+(p.user_id===R.host_id?' 👑':'')+'</span></span></div>'}).join("")}
 function renderCfg(){
@@ -352,7 +381,7 @@ function beginQuestion(){
 function pick(i,btn){
   if(S.myChoice!==null||!R||R.phase!=="question")return;
   btn=btn||$("g-opts").children[i];
-  S.myChoice=i;document.querySelectorAll("#g-opts .opt").forEach(function(b){b.disabled=true});if(!streamActive())btn.classList.add("sel");
+  S.myChoice=i;fx("select");document.querySelectorAll("#g-opts .opt").forEach(function(b){b.disabled=true});if(!streamActive())btn.classList.add("sel");
   $("g-fb").textContent="Resposta enviada. Aguardando o tempo acabar.";
   answered.add(me.id);renderBoard();pushPicker();
   sb.rpc("qr_submit_answer",{p_room:R.id,p_choice:i}).then(function(r){if(r.error)toast(errMsg(r.error))});
@@ -395,7 +424,7 @@ function loadRevealChoices(){
 function beginReveal(){
   loadRevealChoices();
   clearInterval(tick);$("bar").style.transform="scaleX(0)";
-  var ok=R.current_correct;
+  var ok=R.current_correct;fx(S.myChoice===null?"timeout":S.myChoice===ok?"correct":"wrong");
   document.querySelectorAll(".opt").forEach(function(b,i){b.disabled=true;if(i===ok)b.classList.add("ok");else if(i===S.myChoice)b.classList.add("no")});
   renderChoiceAvatars();updateFeedback();updateStreamUI();pushPicker();
   if(isHost()&&S.nextFor!==R.round){S.nextFor=R.round;var rd=R.round;setTimeout(function(){if(R&&R.round===rd&&R.phase==="reveal")sb.rpc("qr_next",{p_room:R.id}).then(function(r){if(r.error)toast(errMsg(r.error))})},3200)}
