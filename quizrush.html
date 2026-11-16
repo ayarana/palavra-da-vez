@@ -95,7 +95,16 @@ select{font:800 16px Nunito,sans-serif;padding:10px;border-radius:10px;backgroun
 .pside{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;border:1px solid transparent;position:relative}
 .pside.me{background:var(--card);border-color:var(--bd)}
 .pside .rk{width:26px;flex:none;font:400 16px "Lilita One",Impact,sans-serif;color:var(--muted)}
+.avatar{width:38px;height:38px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;background:var(--panel2);color:var(--cyan);font:400 18px "Lilita One",Impact,sans-serif}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.avatar .fallback{width:100%;height:100%;display:inline-flex;align-items:center;justify-content:center}
+.avatar .fallback[hidden]{display:none}
 .pside .ini{width:38px;height:38px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;background:var(--panel2);color:var(--cyan);font:400 18px "Lilita One",Impact,sans-serif;object-fit:cover}
+.pside .avatar{padding:0}
+.pside.me .avatar{width:44px;height:44px}
+.score-player{display:flex;align-items:center;gap:10px;min-width:0}
+.score-player>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.score-player .avatar{width:42px;height:42px}
 .pside.me .ini{width:44px;height:44px}
 .nmw{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
 .pside .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -230,6 +239,7 @@ function toast(t){var e=$("toast");e.textContent=t;e.style.display="block";clear
 function show(id){document.querySelectorAll(".screen").forEach(function(s){s.classList.remove("on")});$("s-"+id).classList.add("on");$("main").classList.toggle("wide",id==="game");$("main").classList.toggle("home",id==="home");window.scrollTo(0,0)}
 function isHost(){return R&&me&&R.host_id===me.id}
 function myScore(){var p=players.filter(function(x){return x.user_id===me.id})[0];return p?p.score:0}
+function avatarHtml(p){var initial=esc(((p.display_name||"?").trim().charAt(0)||"?").toUpperCase()),url=p.avatar_url||(me&&p.user_id===me.id?me.avatar:null);return url?'<span class="avatar"><img src="'+esc(url)+'" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="fallback" hidden>'+initial+'</span></span>':'<span class="avatar">'+initial+'</span>'}
 
 /* ---------- login ---------- */
 $("b-login").onclick=function(){sb.auth.signInWithOAuth({provider:"twitch",options:{redirectTo:location.origin+location.pathname+location.search}})};
@@ -308,7 +318,7 @@ function afterPlayers(){
 /* ---------- lobby ---------- */
 function showStartCountdown(startAt){if(!startAt||startCountdownAt===startAt)return;startCountdownAt=startAt;clearInterval(startCountdownTimer);var layer=$("start-countdown"),number=$("start-countdown-number"),goAt=startAt-450;function paint(){var now=Date.now()+clockOff;if(now>=startAt){layer.hidden=true;clearInterval(startCountdownTimer);startCountdownTimer=null;startCountdownAt=0;return}layer.hidden=false;var left=Math.min(3,Math.ceil((goAt-now)/1000));var label=left>0?String(left):"VAI!";if(number.textContent!==label){number.textContent=label;number.style.animation="none";void number.offsetWidth;number.style.animation=""}}paint();startCountdownTimer=setInterval(paint,100)}
 function showLobby(){S.key="";S.round=-1;S.nextFor=-1;S.revFor=-1;show("lobby");pushPicker();$("code").textContent=R.code;$("room-sharelink").value=roomShareUrl(R.code);$("room-sharebtn").hidden=!navigator.share;renderLobbyPlayers();renderCfg()}
-function renderLobbyPlayers(){$("lobby-pl").innerHTML=players.map(function(p){return '<div class="pl'+(p.user_id===me.id?' me':'')+'"><span>'+esc(p.display_name)+(p.user_id===R.host_id?' 👑':'')+'</span></div>'}).join("")}
+function renderLobbyPlayers(){$("lobby-pl").innerHTML=players.map(function(p){return '<div class="pl'+(p.user_id===me.id?' me':'')+'"><span class="score-player">'+avatarHtml(p)+'<span>'+esc(p.display_name)+(p.user_id===R.host_id?' 👑':'')+'</span></span></div>'}).join("")}
 function renderCfg(){
   var host=isHost();$("cfg").hidden=!host;$("cfg-ro").hidden=host;
   if(host){
@@ -397,7 +407,7 @@ function renderBoard(){
   list.forEach(function(p,i){
     var e=els[p.user_id]||(els[p.user_id]=document.createElement("div")),done=R&&R.phase==="question"&&answered.has(p.user_id);
     e.className="pside"+(p.user_id===me.id?" me":"");
-    var av=p.avatar_url?'<img class="ini" src="'+esc(p.avatar_url)+'" alt="" onerror="this.style.visibility=\'hidden\'">':'<span class="ini">'+esc((p.display_name||"?")[0].toUpperCase())+'</span>';
+    var av=avatarHtml(p);
     e.innerHTML='<span class="rk">'+(i+1)+'º</span>'+av+'<span class="nmw"><span class="nm">'+esc(p.display_name)+'</span>'+(i===0&&p.score>0?'<span class="crown" title="Líder">👑</span>':'')+(done?'<span class="okmark" title="Já respondeu">✓</span>':'')+'</span><span class="sc">'+p.score+'</span>';
     box.appendChild(e);
   });
@@ -494,7 +504,7 @@ if(PICKER){
 function showEnd(){
   show("end");pushPicker();
   var list=players.slice().sort(function(a,b){return b.score-a.score});
-  $("e-board").innerHTML=list.map(function(p,i){return '<div class="pl'+(p.user_id===me.id?' me':'')+'"><span>'+(i+1)+'º '+esc(p.display_name)+(p.user_id===R.host_id?' 👑':'')+'</span><span class="pts">'+p.score+'</span></div>'}).join("");
+$("e-board").innerHTML=list.map(function(p,i){var name=(i+1)+"º "+esc(p.display_name)+(p.user_id===R.host_id?" 👑":"");return '<div class="pl'+(p.user_id===me.id?' me':'')+'"><span class="score-player">'+avatarHtml(p)+'<span>'+name+'</span></span><span class="pts">'+p.score+'</span></div>'}).join("");
 }
 $("b-again").onclick=function(){S.back=true;onRoom()};
 function renderRank(tabsId,listId,cur){
