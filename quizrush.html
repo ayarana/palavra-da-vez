@@ -91,6 +91,21 @@ select{font:800 16px Nunito,sans-serif;padding:10px;border-radius:10px;backgroun
 .ghost{font:800 14px Nunito,sans-serif;background:rgba(255,255,255,.07);color:var(--text);border:1px solid var(--bd);border-radius:999px;padding:7px 14px;cursor:pointer;text-decoration:none;display:inline-block}
 .fb{min-height:28px;margin-top:12px;font-size:18px}
 .note{color:var(--muted);font-size:14px}
+main.lobby{max-width:1360px}
+.lobby-layout{display:grid;grid-template-columns:minmax(180px,230px) minmax(360px,1fr) minmax(230px,300px);gap:16px;align-items:stretch}
+.lobby-players,.lobby-main,#lobby-chat{min-width:0}
+.lobby-layout>.card{margin:0}
+.lobby-players h2{margin:0 0 12px}
+.lobby-players #lobby-pl{display:flex;flex-direction:column;gap:8px}
+.lobby-players .pl{margin:0}
+.lobby-main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.lobby-main>.card{margin:0}
+.lobby-room-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+#lobby-room-card .code{font-size:clamp(38px,5vw,52px);line-height:1}
+.lobby-controls{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+#lobby-chat .chatwrap{height:calc(100vh - 96px);min-height:420px;max-height:780px}
+@media(max-width:1000px) and (min-width:841px){#lobby-room-card .share-row{flex-wrap:wrap}#lobby-room-card .share-row input{flex:1 1 100%}}
+@media(max-width:840px){main.lobby{max-width:760px}.lobby-layout{grid-template-columns:minmax(0,1fr)}.lobby-players{order:0}.lobby-main{order:1}#lobby-chat{order:2}#lobby-chat .chatwrap{height:380px;min-height:320px}}
 .room{display:grid;grid-template-columns:230px minmax(0,760px) 320px;gap:20px;justify-content:center;align-items:start}
 #colL,#colR{position:sticky;top:16px;min-width:0}
 #colL{max-height:calc(100vh - 32px);overflow-y:auto}
@@ -171,29 +186,32 @@ body.picker h1.logo{display:none}
 </section>
 
 <section id="s-lobby" class="screen">
-  <div class="card">
-    <p class="note">Código da sala</p>
-    <div class="code" id="code"></div>
-    <h3>Jogadores na sala</h3>
-    <div id="lobby-pl"></div>
-    <div class="share-panel">
-      <b>Convide os jogadores</b>
-      <p class="note">Compartilhe este link para a pessoa entrar direto na sala.</p>
-      <div class="share-row"><input id="room-sharelink" type="text" readonly aria-label="Link para compartilhar a sala"><button class="btn alt" id="room-copylink" type="button">Copiar link</button><button class="ghost" id="room-sharebtn" type="button" hidden>Compartilhar</button></div>
+  <div class="lobby-layout">
+    <aside class="card lobby-players"><h2>Jogadores</h2><div id="lobby-pl"></div></aside>
+    <div class="lobby-main">
+      <div class="card" id="lobby-room-card">
+        <div class="lobby-room-head"><div><p class="note">Código da sala</p><div class="code" id="code"></div></div></div>
+        <div class="share-panel">
+          <b>Convide os jogadores</b>
+          <p class="note">Compartilhe este link para a pessoa entrar direto na sala.</p>
+          <div class="share-row"><input id="room-sharelink" type="text" readonly aria-label="Link para compartilhar a sala"><button class="btn alt" id="room-copylink" type="button">Copiar link</button><button class="ghost" id="room-sharebtn" type="button" hidden>Compartilhar</button></div>
+        </div>
+      </div>
+      <div class="card" id="cfg">
+        <h2>Configurar partida</h2>
+        <label class="f">Temas das perguntas</label>
+        <div class="row" id="chips"></div>
+        <label class="f" for="nq">Número de perguntas</label>
+        <select id="nq"><option>5</option><option>8</option><option>12</option></select>
+        <label class="f" for="tm">Tempo por pergunta</label>
+        <select id="tm"><option value="10">10 segundos</option><option value="15">15 segundos</option><option value="20">20 segundos</option></select>
+        <button class="btn full" id="b-start" style="margin-top:12px">Começar jogo</button>
+      </div>
+      <div class="card" id="cfg-ro" hidden><h2>Partida</h2><p id="ro-info"></p><p class="note">Aguardando o admin começar o jogo…</p></div>
+      <div class="lobby-controls"><button class="chip streamtoggle" type="button" aria-pressed="false">🎥 Modo streamer</button> <button class="ghost sound-toggle" type="button" aria-pressed="false">🔊 Som ligado</button> <button class="ghost" id="b-leave">Sair da sala</button></div>
     </div>
+    <aside id="lobby-chat" class="lobby-chat" aria-label="Chat da sala"></aside>
   </div>
-  <div class="card" id="cfg">
-    <h2>Configurar partida</h2>
-    <label class="f">Temas das perguntas</label>
-    <div class="row" id="chips"></div>
-    <label class="f" for="nq">Número de perguntas</label>
-    <select id="nq"><option>5</option><option>8</option><option>12</option></select>
-    <label class="f" for="tm">Tempo por pergunta</label>
-    <select id="tm"><option value="10">10 segundos</option><option value="15">15 segundos</option><option value="20">20 segundos</option></select>
-    <button class="btn full" id="b-start" style="margin-top:12px">Começar jogo</button>
-  </div>
-  <div class="card" id="cfg-ro" hidden><h2>Partida</h2><p id="ro-info"></p><p class="note">Aguardando o admin começar o jogo…</p></div>
-  <p style="text-align:center"><button class="chip streamtoggle" type="button" aria-pressed="false">🎥 Modo streamer</button> <button class="ghost sound-toggle" type="button" aria-pressed="false">🔊 Som ligado</button> <button class="ghost" id="b-leave">Sair da sala</button></p>
 </section>
 
 <section id="s-game" class="screen"><div class="room">
@@ -249,7 +267,7 @@ document.addEventListener("pointerdown",function(){try{fxAudio=fxAudio||(window.
 function fx(kind){if(fxMuted)return;if(kind==="select")fxTone(560,.07,0);else if(kind==="count")fxTone(440,.12,0);else if(kind==="go"){fxTone(740,.15,0);fxTone(990,.24,.13)}else if(kind==="correct"){fxTone(660,.12,0);fxTone(880,.18,.12)}else if(kind==="wrong"){fxTone(300,.14,0);fxTone(220,.19,.13)}else if(kind==="timeout")fxTone(330,.2,0)}
 function updateSoundControls(){document.querySelectorAll(".sound-toggle").forEach(function(b){b.textContent=fxMuted?"🔇 Som desligado":"🔊 Som ligado";b.setAttribute("aria-pressed",String(fxMuted));b.title=fxMuted?"Ligar efeitos sonoros":"Desligar efeitos sonoros"})}
 document.querySelectorAll(".sound-toggle").forEach(function(b){b.onclick=function(){fxMuted=!fxMuted;try{localStorage.setItem("qr_sound_muted",fxMuted?"1":"0")}catch(e){}updateSoundControls();if(!fxMuted)fx("select")}});updateSoundControls();
-function show(id){document.querySelectorAll(".screen").forEach(function(s){s.classList.remove("on")});$("s-"+id).classList.add("on");$("main").classList.toggle("wide",id==="game");$("main").classList.toggle("home",id==="home");window.scrollTo(0,0)}
+function show(id){document.querySelectorAll(".screen").forEach(function(s){s.classList.remove("on")});$("s-"+id).classList.add("on");$("main").classList.toggle("wide",id==="game");$("main").classList.toggle("home",id==="home");$("main").classList.toggle("lobby",id==="lobby");var chat=document.querySelector(".chatwrap");if(chat&&id==="lobby")$("lobby-chat").appendChild(chat);else if(chat&&id==="game")$("colR").appendChild(chat);window.scrollTo(0,0)}
 function isHost(){return R&&me&&R.host_id===me.id}
 function myScore(){var p=players.filter(function(x){return x.user_id===me.id})[0];return p?p.score:0}
 function avatarHtml(p){var initial=esc(((p.display_name||"?").trim().charAt(0)||"?").toUpperCase()),url=p.avatar_url||(me&&p.user_id===me.id?me.avatar:null);return url?'<span class="avatar"><img src="'+esc(url)+'" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="fallback" hidden>'+initial+'</span></span>':'<span class="avatar">'+initial+'</span>'}
