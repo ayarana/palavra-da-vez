@@ -17,6 +17,12 @@ main{position:relative;z-index:1;max-width:720px;margin:0 auto;padding:20px 16px
 main.wide{max-width:1360px}
 main.home{width:min(100%,920px);max-width:920px;margin:0 auto;padding:14px 16px 40px}
 main.home>h1.logo{display:none}
+.share-panel{margin-top:14px;padding:14px;background:rgba(7,7,13,.38);border:1px solid var(--bd);border-radius:14px}
+.share-panel p{margin:4px 0 10px}
+.share-row{display:flex;align-items:stretch;gap:8px}
+.share-row input{flex:1;min-width:0;margin:0;font-size:14px;padding:10px}
+.share-row .btn,.share-row .ghost{white-space:nowrap}
+@media(max-width:520px){.share-row{flex-direction:column}.share-row input{width:100%}}
 .home-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .home-actions,.home-links{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .home-toolbar .btn,.home-toolbar .chip,.home-toolbar .ghost{height:46px;min-width:46px;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;border-radius:14px}
@@ -151,6 +157,11 @@ body.picker h1.logo{display:none}
     <div class="code" id="code"></div>
     <h3>Jogadores na sala</h3>
     <div id="lobby-pl"></div>
+    <div class="share-panel">
+      <b>Convide os jogadores</b>
+      <p class="note">Compartilhe este link para a pessoa entrar direto na sala.</p>
+      <div class="share-row"><input id="room-sharelink" type="text" readonly aria-label="Link para compartilhar a sala"><button class="btn alt" id="room-copylink" type="button">Copiar link</button><button class="ghost" id="room-sharebtn" type="button" hidden>Compartilhar</button></div>
+    </div>
   </div>
   <div class="card" id="cfg">
     <h2>Configurar partida</h2>
@@ -243,6 +254,9 @@ $("b-join").onclick=function(){joinCode($("code-in").value)};
 $("code-in").onkeydown=function(e){if(e.key==="Enter")joinCode(this.value)};
 $("b-rank").onclick=function(){renderRank("r-tabs","r-theme");show("rank")};
 $("b-back").onclick=function(){show("home")};
+function roomShareUrl(code){var base=location.protocol==="file:"?location.href.split(/[?#]/)[0]:location.origin+location.pathname;return base+"?sala="+encodeURIComponent(code)}
+$("room-copylink").onclick=async function(){var input=$("room-sharelink");try{await navigator.clipboard.writeText(input.value);toast("Link da sala copiado!");return}catch(e){}input.focus();input.select();try{if(document.execCommand("copy")){toast("Link da sala copiado!");return}}catch(e){}toast("Selecione o link e copie manualmente.")};
+$("room-sharebtn").onclick=function(){if(!navigator.share)return;navigator.share({title:"QuizRush",text:"Entre na minha sala do QuizRush!",url:$("room-sharelink").value}).catch(function(){})};
 
 /* ---------- sala ---------- */
 function leaveRoom(){if(chan){sb.removeChannel(chan);chan=null}clearInterval(tick);R=null;players=[];answered=new Set();S={};els={};prevRank={};prevScore={};chatIds={}}
@@ -285,7 +299,7 @@ function afterPlayers(){
 }
 
 /* ---------- lobby ---------- */
-function showLobby(){S.key="";S.round=-1;S.nextFor=-1;S.revFor=-1;show("lobby");pushPicker();$("code").textContent=R.code;renderLobbyPlayers();renderCfg()}
+function showLobby(){S.key="";S.round=-1;S.nextFor=-1;S.revFor=-1;show("lobby");pushPicker();$("code").textContent=R.code;$("room-sharelink").value=roomShareUrl(R.code);$("room-sharebtn").hidden=!navigator.share;renderLobbyPlayers();renderCfg()}
 function renderLobbyPlayers(){$("lobby-pl").innerHTML=players.map(function(p){return '<div class="pl'+(p.user_id===me.id?' me':'')+'"><span>'+esc(p.display_name)+(p.user_id===R.host_id?' 👑':'')+'</span></div>'}).join("")}
 function renderCfg(){
   var host=isHost();$("cfg").hidden=!host;$("cfg-ro").hidden=host;
