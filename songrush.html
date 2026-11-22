@@ -1321,16 +1321,18 @@ function enterRoom(id){
   startPing();
   startRoomBadges();
   chan=sb.channel('pdv-'+id);
-  ['pdv_players','pdv_submissions','pdv_ready','pdv_votes','pdv_results'].forEach(t=>chan.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'room_id=eq.'+id},schedule));
-  chan.on('postgres_changes',{event:'*',schema:'public',table:'pdv_rooms',filter:'id=eq.'+id},schedule);
+  ['pdv_players','pdv_submissions','pdv_ready','pdv_votes','pdv_results'].forEach(t=>chan.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'room_id=eq.'+id},()=>schedule(t)));
+  chan.on('postgres_changes',{event:'*',schema:'public',table:'pdv_rooms',filter:'id=eq.'+id},()=>schedule('pdv_rooms'));
   chan.on('postgres_changes',{event:'INSERT',schema:'public',table:'pdv_chat',filter:'room_id=eq.'+id},()=>fetchChat());
   chan.subscribe();
-  const pollTick=()=>{poll=setTimeout(()=>{if(!ROOM_ID)return;schedule();fetchChat();pollTick()},(S.players&&S.players.length>20)?20000:10000)};
+  // aba em segundo plano: o polling espaça para 30 s e não busca o chat (o realtime continua valendo); ao voltar, recarrega tudo
+  const pollTick=()=>{poll=setTimeout(()=>{if(!ROOM_ID)return;schedule();if(!document.hidden)fetchChat();pollTick()},document.hidden?30000:(S.players&&S.players.length>20)?20000:10000)};
   pollTick();loadAll();fetchChat();
 }
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ROOM_ID){schedule();fetchChat()}});
 function leaveRoom(silent){
   if(chan){sb.removeChannel(chan);chan=null}
-  clearTimeout(poll);stopAudio();closePicker();stopPing();stopRoomBadges();ROOM_ID=null;loadAgain=false;$('cd').hidden=true;
+  clearTimeout(poll);stopAudio();closePicker();stopPing();stopRoomBadges();ROOM_ID=null;loadAgain=false;dirty.clear();dirtyAll=false;$('cd').hidden=true;
   if(!silent){show('home');checkActive()}
 }
 $('leave').onclick=async()=>{
@@ -1340,19 +1342,22 @@ $('leave').onclick=async()=>{
   if(error)return toast(errMsg(error));
   leaveRoom(false);
 };
-function schedule(){clearTimeout(loadT);loadT=setTimeout(()=>{if(loadBusy){loadAgain=true;return}loadAll()},120)}
+// tabelas "sujas": o evento realtime diz qual tabela mudou, então só ela (e a sala) é recarregada. schedule() sem argumento recarrega tudo
+const TABS=['pdv_players','pdv_ready','pdv_submissions','pdv_votes','pdv_results'],dirty=new Set();let dirtyAll=false;
+function schedule(t){if(t)dirty.add(t);else dirtyAll=true;clearTimeout(loadT);loadT=setTimeout(()=>{if(loadBusy){loadAgain=true;return}loadAll()},120)}
 async function loadAll(){
   const id=ROOM_ID;if(!id)return;
   if(loadBusy){loadAgain=true;return}
   loadBusy=true;
+  const want=(dirtyAll||!S.room)?TABS:TABS.filter(t=>dirty.has(t));dirty.clear();dirtyAll=false;
   try{
-    const q=t=>sb.from(t).select('*').eq('room_id',id);
+    const q=t=>want.includes(t)?sb.from(t).select('*').eq('room_id',id):null;   // a sala (1 linha) sempre vem; as demais só se mudaram
     const [r,p,rd,sm,vt,rs]=await Promise.all([sb.from('pdv_rooms').select('*').eq('id',id).single(),q('pdv_players'),q('pdv_ready'),q('pdv_submissions'),q('pdv_votes'),q('pdv_results')]);
     if(id!==ROOM_ID)return;
     if(r.error&&r.error.code==='PGRST116'){removedFromRoom();return}
-    if(r.error||!r.data)return;
-    const prevRoom=S.room;
-    S={room:r.data,players:p.data||[],ready:rd.data||[],subs:sm.data||[],votes:vt.data||[],results:rs.data||[]};
+    if(r.error||!r.data){dirtyAll=true;return}
+    const prevRoom=S.room,keep=(x,k)=>x?x.data||[]:S[k];
+    S={room:r.data,players:keep(p,'players'),ready:keep(rd,'ready'),subs:keep(sm,'subs'),votes:keep(vt,'votes'),results:keep(rs,'results')};
     if(S.room.paused){if(!pauseAt)pauseAt=Date.now()}
     else if(pauseAt){phaseT0+=Date.now()-pauseAt;pauseAt=null}
     if(prevRoom&&prevRoom.turn===S.room.turn&&prevRoom.phase==='input'&&S.room.phase==='input'){
@@ -1368,8 +1373,8 @@ async function loadAll(){
       if(R.phase==='reveal')fetchLyrics();
     }
     render();
-  }catch(e){console.warn('Falha ao sincronizar a sala',e)}
-  finally{loadBusy=false;if(loadAgain&&ROOM_ID){loadAgain=false;schedule()}}
+  }catch(e){dirtyAll=true;console.warn('Falha ao sincronizar a sala',e)}
+  finally{loadBusy=false;if(loadAgain&&ROOM_ID){loadAgain=false;schedule('pdv_rooms')}}
 }
 
 /* ---------- helpers de estado ---------- */
