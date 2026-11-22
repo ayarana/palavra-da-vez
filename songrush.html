@@ -1326,7 +1326,8 @@ function enterRoom(id){
   ['pdv_players','pdv_submissions','pdv_ready','pdv_votes','pdv_results'].forEach(t=>chan.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'room_id=eq.'+id},()=>schedule(t)));
   chan.on('postgres_changes',{event:'*',schema:'public',table:'pdv_rooms',filter:'id=eq.'+id},()=>schedule('pdv_rooms'));
   chan.on('postgres_changes',{event:'INSERT',schema:'public',table:'pdv_chat',filter:'room_id=eq.'+id},()=>fetchChat());
-  chan.subscribe();
+  let subbed=false;   // se o realtime cair e voltar, eventos podem ter sido perdidos: recarrega tudo ao reconectar
+  chan.subscribe(st=>{if(st==='SUBSCRIBED'){if(subbed&&ROOM_ID)schedule();subbed=true}});
   // aba em segundo plano: o polling espaça para 30 s e não busca o chat (o realtime continua valendo); ao voltar, recarrega tudo
   const pollTick=()=>{poll=setTimeout(()=>{if(!ROOM_ID)return;schedule();if(!document.hidden)fetchChat();pollTick()},document.hidden?30000:(S.players&&S.players.length>20)?20000:10000)};
   pollTick();loadAll();fetchChat();
@@ -1345,6 +1346,8 @@ $('leave').onclick=async()=>{
   leaveRoom(false);
 };
 // tabelas "sujas": o evento realtime diz qual tabela mudou, então só ela (e a sala) é recarregada. schedule() sem argumento recarrega tudo
+// pedido que nunca responde não pode travar a sala: estourado o prazo, a chamada é abandonada e tentada de novo
+const withTimeout=(p,ms)=>{let t;return Promise.race([Promise.resolve(p),new Promise((_,rej)=>{t=setTimeout(()=>rej(new Error('timeout')),ms)})]).finally(()=>clearTimeout(t))};
 const TABS=['pdv_players','pdv_ready','pdv_submissions','pdv_votes','pdv_results'],dirty=new Set();let dirtyAll=false;
 function schedule(t){if(t)dirty.add(t);else dirtyAll=true;clearTimeout(loadT);loadT=setTimeout(()=>{if(loadBusy){loadAgain=true;return}loadAll()},120)}
 async function loadAll(){
@@ -1354,7 +1357,7 @@ async function loadAll(){
   const want=(dirtyAll||!S.room)?TABS:TABS.filter(t=>dirty.has(t));dirty.clear();dirtyAll=false;
   try{
     const q=t=>want.includes(t)?sb.from(t).select('*').eq('room_id',id):null;   // a sala (1 linha) sempre vem; as demais só se mudaram
-    const [r,p,rd,sm,vt,rs]=await Promise.all([sb.from('pdv_rooms').select('*').eq('id',id).single(),q('pdv_players'),q('pdv_ready'),q('pdv_submissions'),q('pdv_votes'),q('pdv_results')]);
+    const [r,p,rd,sm,vt,rs]=await withTimeout(Promise.all([sb.from('pdv_rooms').select('*').eq('id',id).single(),q('pdv_players'),q('pdv_ready'),q('pdv_submissions'),q('pdv_votes'),q('pdv_results')]),10000);
     if(id!==ROOM_ID)return;
     if(r.error&&r.error.code==='PGRST116'){removedFromRoom();return}
     if(r.error||!r.data){dirtyAll=true;return}
@@ -1372,10 +1375,12 @@ async function loadAll(){
       phaseT0=first?Date.parse(R.phase_started_at||new Date()):Date.now();
       stopAudio();songsSig='';lastCdN=null;builtIn='';editing=false;okSeen.clear();
       if(R.phase==='lobby'){lyr={};called=new Set()}
+      // ao entrar na revelação/resultado, garante que músicas, votos e resultados estão completos (um evento perdido deixaria cartões faltando)
+      if((R.phase==='reveal'||R.phase==='done')&&want.length<TABS.length){['pdv_submissions','pdv_votes','pdv_results'].forEach(t=>dirty.add(t));schedule('pdv_rooms')}
       if(R.phase==='reveal')fetchLyrics();
     }
     render();
-  }catch(e){dirtyAll=true;console.warn('Falha ao sincronizar a sala',e)}
+  }catch(e){dirtyAll=true;console.warn('Falha ao sincronizar a sala',e);setTimeout(()=>{if(ROOM_ID)schedule()},2000)}
   finally{loadBusy=false;if(loadAgain&&ROOM_ID){loadAgain=false;schedule('pdv_rooms')}}
 }
 
@@ -1788,7 +1793,7 @@ function renderHistory(){
 /* ---------- relógio da partida (todos) + condução (só o admin) ---------- */
 function hostCall(tag,fn,args){
   const k=lastKey+tag;if(called.has(k))return;called.add(k);
-  sb.rpc(fn,args).then(({error})=>{if(error){setTimeout(()=>called.delete(k),700);console.warn(fn,error.message)}else schedule()});
+  withTimeout(sb.rpc(fn,args),8000).then(({error})=>{if(error){setTimeout(()=>called.delete(k),700);console.warn(fn,error.message)}else schedule()}).catch(e=>{setTimeout(()=>called.delete(k),700);console.warn(fn,e.message)});
 }
 // plano B se o admin parou (aba em segundo plano, conexão ruim): passados FB_MS além do prazo do admin, os outros jogadores
 // tentam a mesma RPC de avanço, escalonados por jogador. Se o servidor recusar (só o admin pode), o erro é ignorado e não há nova tentativa
