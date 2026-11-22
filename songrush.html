@@ -827,7 +827,7 @@ function show(v){
   $('topnav').hidden=v==='room';
   document.querySelectorAll('.navb[data-v]').forEach(b=>{b.hidden=(!user&&b.dataset.v==='perfil')||(b.dataset.v==='admin'&&!IS_ADMIN);b.classList.toggle('on',v==='stats'&&b.dataset.v===statsTab)});
   clearInterval(publicRoomsTimer);publicRoomsTimer=null;
-  if(v==='home'&&user){loadPublicRooms();publicRoomsTimer=setInterval(()=>{if(user&&!ROOM_ID&&!$('v-home').hidden)loadPublicRooms()},20000)}
+  if(v==='home'&&user){loadPublicRooms();publicRoomsTimer=setInterval(()=>{if(user&&!ROOM_ID&&!$('v-home').hidden&&!document.hidden)loadPublicRooms()},20000)}
 }
 let statsTab='perfil';
 function openStats(tab){
@@ -1310,8 +1310,10 @@ function startPing(){
   go();pingT=setInterval(go,30000);
 }
 function stopPing(){clearInterval(pingT);pingT=null}
-async function loadRoomBadges(){const [vp,md]=await Promise.all([sb.from('pdv_vip').select('user_id,tier,expires_at'),sb.rpc('pdv_medal_tiers')]);if(vp&&vp.data)VIP=vipFromRows(vp.data);if(md&&md.data)MEDAL=Object.fromEntries(md.data.map(x=>[x.user_id,{tier:x.tier,count:Number(x.approved_count)}]));if(S.room)render()}
-function startRoomBadges(){stopRoomBadges();loadRoomBadges();roomBadgeT=setInterval(loadRoomBadges,60000)}
+// emblemas mudam raramente: busca a cada 3 min (não em aba oculta) e só redesenha a sala se algo mudou
+const BADGE_MS=180000;let badgeSig='',badgeAt=0;
+async function loadRoomBadges(){badgeAt=Date.now();const [vp,md]=await Promise.all([sb.from('pdv_vip').select('user_id,tier,expires_at'),sb.rpc('pdv_medal_tiers')]);const sig=JSON.stringify([vp&&vp.data,md&&md.data]);if(vp&&vp.data)VIP=vipFromRows(vp.data);if(md&&md.data)MEDAL=Object.fromEntries(md.data.map(x=>[x.user_id,{tier:x.tier,count:Number(x.approved_count)}]));if(sig!==badgeSig){badgeSig=sig;if(S.room)render()}}
+function startRoomBadges(){stopRoomBadges();badgeSig='';loadRoomBadges();roomBadgeT=setInterval(()=>{if(!document.hidden)loadRoomBadges()},BADGE_MS)}
 function stopRoomBadges(){clearInterval(roomBadgeT);roomBadgeT=null}
 function enterRoom(id){
   leaveRoom(true);ROOM_ID=id;S={room:null,players:[],ready:[],subs:[],votes:[],results:[]};
@@ -1329,7 +1331,7 @@ function enterRoom(id){
   const pollTick=()=>{poll=setTimeout(()=>{if(!ROOM_ID)return;schedule();if(!document.hidden)fetchChat();pollTick()},document.hidden?30000:(S.players&&S.players.length>20)?20000:10000)};
   pollTick();loadAll();fetchChat();
 }
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ROOM_ID){schedule();fetchChat()}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ROOM_ID){schedule();fetchChat();if(Date.now()-badgeAt>BADGE_MS)loadRoomBadges()}});
 function leaveRoom(silent){
   if(chan){sb.removeChannel(chan);chan=null}
   clearTimeout(poll);stopAudio();closePicker();stopPing();stopRoomBadges();ROOM_ID=null;loadAgain=false;dirty.clear();dirtyAll=false;$('cd').hidden=true;
