@@ -1348,6 +1348,7 @@ $('leave').onclick=async()=>{
 // tabelas "sujas": o evento realtime diz qual tabela mudou, então só ela (e a sala) é recarregada. schedule() sem argumento recarrega tudo
 // pedido que nunca responde não pode travar a sala: estourado o prazo, a chamada é abandonada e tentada de novo
 const withTimeout=(p,ms)=>{let t;return Promise.race([Promise.resolve(p),new Promise((_,rej)=>{t=setTimeout(()=>rej(new Error('timeout')),ms)})]).finally(()=>clearTimeout(t))};
+let skew=null;
 const TABS=['pdv_players','pdv_ready','pdv_submissions','pdv_votes','pdv_results'],dirty=new Set();let dirtyAll=false;
 function schedule(t){if(t)dirty.add(t);else dirtyAll=true;clearTimeout(loadT);loadT=setTimeout(()=>{if(loadBusy){loadAgain=true;return}loadAll()},120)}
 async function loadAll(){
@@ -1372,7 +1373,11 @@ async function loadAll(){
     const R=S.room,key=R.turn+':'+R.phase;
     if(key!==lastKey){
       const first=lastKey==='';lastKey=key;
-      phaseT0=first?Date.parse(R.phase_started_at||new Date()):Date.now();
+      // relógio da fase ancorado em phase_started_at (servidor) e não na hora em que ESTE navegador recebeu o evento: todos ficam na mesma linha
+      // do tempo. skew = menor atraso observado entre o início da fase e a chegada do evento (cobre relógio local diferente + latência)
+      const ps=Date.parse(R.phase_started_at||''),obs=Date.now()-ps;
+      if(!first&&isFinite(obs)&&Math.abs(obs)<30000)skew=skew===null?obs:Math.min(skew,obs);
+      phaseT0=isFinite(ps)?ps+(skew!==null?skew:first?0:obs):Date.now();
       stopAudio();songsSig='';lastCdN=null;builtIn='';editing=false;okSeen.clear();
       if(R.phase==='lobby'){lyr={};called=new Set()}
       // ao entrar na revelação/resultado, garante que músicas, votos e resultados estão completos (um evento perdido deixaria cartões faltando)
