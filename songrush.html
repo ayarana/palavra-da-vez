@@ -592,6 +592,8 @@ Object.assign(I18N.en,{'GIFs':'GIFs','Buscar no GIPHY':'Search GIPHY','Buscar':'
 Object.assign(I18N.es,{'GIFs':'GIFs','Buscar no GIPHY':'Buscar en GIPHY','Buscar':'Buscar','Em alta':'En tendencia','😂 Risadas':'😂 Risas','👏 Aplausos':'👏 Aplausos','🎉 Comemorar':'🎉 Celebrar','😮 Surpresa':'😮 Sorpresa','🎵 Música':'🎵 Música','Fechar':'Cerrar','GIF inválido.':'GIF no válido.'});
 Object.assign(I18N.en,{'🔊 Prévia do YouTube. Se não iniciar, toque no player.':'YouTube preview. If it does not start, click the player.'});
 Object.assign(I18N.es,{'🔊 Prévia do YouTube. Se não iniciar, toque no player.':'Vista previa de YouTube. Si no inicia, toca el reproductor.'});
+Object.assign(I18N.en,{'Muitos envios ao mesmo tempo. Tente de novo em instantes.':'Too many submissions at once. Try again in a moment.','O servidor demorou para responder. Confira se sua música foi enviada ou tente de novo.':'The server took too long to answer. Check whether your song was sent, or try again.'});
+Object.assign(I18N.es,{'Muitos envios ao mesmo tempo. Tente de novo em instantes.':'Demasiados envíos a la vez. Inténtalo de nuevo en un momento.','O servidor demorou para responder. Confira se sua música foi enviada ou tente de novo.':'El servidor tardó en responder. Comprueba si se envió tu canción o inténtalo de nuevo.'});
 // tr("texto em português", {variaveis}) -> texto no idioma atual (se faltar a tradução, usa o português)
 function tr(pt,v){
   let x=(LANG!=='pt'&&I18N[LANG]&&I18N[LANG][pt])||pt;
@@ -617,7 +619,7 @@ function applyStatic(){
   }));
   document.documentElement.lang=LOC[LANG];document.title=tr('SongRush – Online');
 }
-const ERR={room_not_found:'Sala não encontrada.',game_started:'Essa partida já começou.',room_full:'Sala cheia (máx. 50).',time_over:'Tempo esgotado.',not_input_phase:'Não é hora de enviar.',own_song:'Você não vota na sua música.',catalog_unavailable:'O serviço de busca de músicas está indisponível. Tente de novo.',not_authenticated:'Entre com a Twitch para enviar.',no_word:'Esta rodada não tem palavra. Tente de novo.',submit_failed:'Não foi possível enviar. Tente de novo.',paused:'A partida está pausada.',not_host:'Só o admin da sala pode fazer isso.',cannot_kick_self:'Você não pode remover a si mesmo.',not_member:'Essa pessoa não está mais na sala.',joins_next_turn:'Você entrou no meio do turno e só joga a partir do próximo.',word_exists:'Essa palavra já foi sugerida.',bad_word:'Use uma palavra só, só com letras (2 a 24).',too_many_pending:'Você já tem 5 sugestões aguardando aprovação.',not_admin:'Só o moderador pode fazer isso.',not_found:'Sugestão não encontrada ou já avaliada.',already_started:'A partida já começou.',bad_turns:'Escolha de 1 a 20 turnos.',chat_paused:'O chat fica pausado enquanto as músicas são escolhidas.',slow_down:'Devagar! Aguarde alguns segundos.',bad_message:'Mensagem inválida.',word_not_played:'Só dá para avaliar palavras que você já jogou.',already_ready:'Você já respondeu neste turno.',cannot_change:'Todos já responderam — não dá mais para alterar.'};
+const ERR={busy:'Muitos envios ao mesmo tempo. Tente de novo em instantes.',submit_timeout:'O servidor demorou para responder. Confira se sua música foi enviada ou tente de novo.',room_not_found:'Sala não encontrada.',game_started:'Essa partida já começou.',room_full:'Sala cheia (máx. 50).',time_over:'Tempo esgotado.',not_input_phase:'Não é hora de enviar.',own_song:'Você não vota na sua música.',catalog_unavailable:'O serviço de busca de músicas está indisponível. Tente de novo.',not_authenticated:'Entre com a Twitch para enviar.',no_word:'Esta rodada não tem palavra. Tente de novo.',submit_failed:'Não foi possível enviar. Tente de novo.',paused:'A partida está pausada.',not_host:'Só o admin da sala pode fazer isso.',cannot_kick_self:'Você não pode remover a si mesmo.',not_member:'Essa pessoa não está mais na sala.',joins_next_turn:'Você entrou no meio do turno e só joga a partir do próximo.',word_exists:'Essa palavra já foi sugerida.',bad_word:'Use uma palavra só, só com letras (2 a 24).',too_many_pending:'Você já tem 5 sugestões aguardando aprovação.',not_admin:'Só o moderador pode fazer isso.',not_found:'Sugestão não encontrada ou já avaliada.',already_started:'A partida já começou.',bad_turns:'Escolha de 1 a 20 turnos.',chat_paused:'O chat fica pausado enquanto as músicas são escolhidas.',slow_down:'Devagar! Aguarde alguns segundos.',bad_message:'Mensagem inválida.',word_not_played:'Só dá para avaliar palavras que você já jogou.',already_ready:'Você já respondeu neste turno.',cannot_change:'Todos já responderam — não dá mais para alterar.'};
 const errMsg=e=>{const k=(e.message||'').trim();return ERR[k]?tr(ERR[k]):e.message};
 
 /* ---------- letra / música ---------- */
@@ -1322,6 +1324,7 @@ function enterRoom(id){
   show('room');
   startPing();
   startRoomBadges();
+  syncClock(true);
   chan=sb.channel('pdv-'+id);
   ['pdv_players','pdv_submissions','pdv_ready','pdv_votes','pdv_results'].forEach(t=>chan.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'room_id=eq.'+id},()=>schedule(t)));
   chan.on('postgres_changes',{event:'*',schema:'public',table:'pdv_rooms',filter:'id=eq.'+id},()=>schedule('pdv_rooms'));
@@ -1332,7 +1335,7 @@ function enterRoom(id){
   const pollTick=()=>{poll=setTimeout(()=>{if(!ROOM_ID)return;schedule();if(!document.hidden)fetchChat();pollTick()},document.hidden?30000:(S.players&&S.players.length>20)?20000:10000)};
   pollTick();loadAll();fetchChat();
 }
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ROOM_ID){schedule();fetchChat();if(Date.now()-badgeAt>BADGE_MS)loadRoomBadges()}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ROOM_ID){schedule();fetchChat();if(Date.now()-badgeAt>BADGE_MS)loadRoomBadges();syncClock(false)}});
 function leaveRoom(silent){
   if(chan){sb.removeChannel(chan);chan=null}
   clearTimeout(poll);stopAudio();closePicker();stopPing();stopRoomBadges();ROOM_ID=null;loadAgain=false;dirty.clear();dirtyAll=false;$('cd').hidden=true;
@@ -1348,7 +1351,18 @@ $('leave').onclick=async()=>{
 // tabelas "sujas": o evento realtime diz qual tabela mudou, então só ela (e a sala) é recarregada. schedule() sem argumento recarrega tudo
 // pedido que nunca responde não pode travar a sala: estourado o prazo, a chamada é abandonada e tentada de novo
 const withTimeout=(p,ms)=>{let t;return Promise.race([Promise.resolve(p),new Promise((_,rej)=>{t=setTimeout(()=>rej(new Error('timeout')),ms)})]).finally(()=>clearTimeout(t))};
-let skew=null;
+let skew=null,srvOff=null,clockMissing=false;   // srvOff = (hora do servidor - hora local) em ms, medido com pdv_server_time (se o banco tiver essa função)
+async function syncClock(first){
+  if(clockMissing)return;
+  try{
+    const t0=Date.now(),{data,error}=await withTimeout(sb.rpc('pdv_server_time'),5000),t1=Date.now();
+    if(error){if(/PGRST202|42883|could not find the function|does not exist/i.test((error.code||'')+' '+(error.message||'')))clockMissing=true;return}
+    const o=Number(data)-(t0+t1)/2;if(!isFinite(o))return;
+    srvOff=o;
+    if(first&&S.room&&!S.room.paused&&!pauseAt){const ps=Date.parse(S.room.phase_started_at||'');if(isFinite(ps))phaseT0=ps-srvOff}
+  }catch(e){}
+}
+let roomState=null;   // false = o banco não tem pdv_room_state: volta às consultas por tabela
 const TABS=['pdv_players','pdv_ready','pdv_submissions','pdv_votes','pdv_results'],dirty=new Set();let dirtyAll=false;
 function schedule(t){if(t)dirty.add(t);else dirtyAll=true;clearTimeout(loadT);loadT=setTimeout(()=>{if(loadBusy){loadAgain=true;return}loadAll()},120)}
 async function loadAll(){
@@ -1358,7 +1372,16 @@ async function loadAll(){
   const want=(dirtyAll||!S.room)?TABS:TABS.filter(t=>dirty.has(t));dirty.clear();dirtyAll=false;
   try{
     const q=t=>want.includes(t)?sb.from(t).select('*').eq('room_id',id):null;   // a sala (1 linha) sempre vem; as demais só se mudaram
-    const [r,p,rd,sm,vt,rs]=await withTimeout(Promise.all([sb.from('pdv_rooms').select('*').eq('id',id).single(),q('pdv_players'),q('pdv_ready'),q('pdv_submissions'),q('pdv_votes'),q('pdv_results')]),10000);
+    // recarga completa: 1 chamada (pdv_room_state) se o banco tiver; senão, as 6 consultas de sempre
+    let pack=null;
+    if(want.length===TABS.length&&roomState!==false){
+      const x=await withTimeout(sb.rpc('pdv_room_state',{p_room:id}),10000).catch(()=>null);
+      if(x&&x.error&&/PGRST202|42883|could not find the function|does not exist/i.test((x.error.code||'')+' '+(x.error.message||'')))roomState=false;
+      else if(x&&!x.error&&x.data&&typeof x.data==='object')pack=x.data;
+    }
+    const ok=d=>({data:d});
+    const [r,p,rd,sm,vt,rs]=pack?[pack.room?ok(pack.room):{error:{code:'PGRST116'}},ok(pack.players||[]),ok(pack.ready||[]),ok(pack.subs||[]),ok(pack.votes||[]),ok(pack.results||[])]
+      :await withTimeout(Promise.all([sb.from('pdv_rooms').select('*').eq('id',id).single(),q('pdv_players'),q('pdv_ready'),q('pdv_submissions'),q('pdv_votes'),q('pdv_results')]),10000);
     if(id!==ROOM_ID)return;
     if(r.error&&r.error.code==='PGRST116'){removedFromRoom();return}
     if(r.error||!r.data){dirtyAll=true;return}
@@ -1377,7 +1400,7 @@ async function loadAll(){
       // do tempo. skew = menor atraso observado entre o início da fase e a chegada do evento (cobre relógio local diferente + latência)
       const ps=Date.parse(R.phase_started_at||''),obs=Date.now()-ps;
       if(!first&&isFinite(obs)&&Math.abs(obs)<30000)skew=skew===null?obs:Math.min(skew,obs);
-      phaseT0=isFinite(ps)?ps+(skew!==null?skew:first?0:obs):Date.now();
+      phaseT0=isFinite(ps)?(srvOff!==null?ps-srvOff:ps+(skew!==null?skew:first?0:obs)):Date.now();
       stopAudio();songsSig='';lastCdN=null;builtIn='';editing=false;okSeen.clear();
       if(R.phase==='lobby'){lyr={};called=new Set()}
       // ao entrar na revelação/resultado, garante que músicas, votos e resultados estão completos (um evento perdido deixaria cartões faltando)
@@ -1589,7 +1612,7 @@ async function giveUp(){
 async function submitSongServer(artist,track){
   let r;
   // sem resposta em 20 s: libera o botão e recarrega a sala (o servidor pode ter registrado a música mesmo assim)
-  try{r=await withTimeout(sb.functions.invoke('submit-song',{body:{room_id:ROOM_ID,artist,track}}),20000)}catch(e){schedule();return{error:'submit_failed'}}
+  try{r=await withTimeout(sb.functions.invoke('submit-song',{body:{room_id:ROOM_ID,artist,track}}),20000)}catch(e){schedule();return{error:'submit_timeout'}}
   const {data,error}=r;
   if(!error)return{data};
   let code='submit_failed';
