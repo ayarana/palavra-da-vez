@@ -749,15 +749,32 @@ async function findSong(artist,track){
   return{key:norm(clean(x.trackName))+'|'+norm(x.artistName),track:x.trackName,artist:x.artistName,art:x.art,preview:x.previewUrl};
 }
 
+// cache em memória (acertos e "não encontrado" por alguns minutos) + deduplicação de pedidos em andamento
+const lyrCache=new Map(),lyrInflight=new Map(),LYR_MISS_MS=5*60*1000,LYR_TIMEOUT_MS=8000;
+async function lrFetch(url){
+  const ac=new AbortController(),to=setTimeout(()=>ac.abort(),LYR_TIMEOUT_MS);
+  try{const r=await fetch(url,{signal:ac.signal});return{r,j:r.ok?await r.json():null}}finally{clearTimeout(to)}
+}
 async function getLyrics(artist,track){
-  try{
-    const p=`artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(clean(track))}`;
-    let r=await fetch('https://lrclib.net/api/get?'+p);
-    if(r.ok){const j=await r.json();if(j.plainLyrics)return j.plainLyrics}
-    r=await fetch('https://lrclib.net/api/search?'+p);
-    if(r.ok){const j=await r.json();const h=j.find(x=>x.plainLyrics);if(h)return h.plainLyrics}
-  }catch(e){}
-  return null;
+  const key=(artist+'|'+clean(track)).toLowerCase(),c=lyrCache.get(key);
+  if(c&&(c.text||Date.now()-c.t<LYR_MISS_MS))return c.text;
+  if(lyrInflight.has(key))return lyrInflight.get(key);
+  const job=(async()=>{
+    let sure=true;   // só guarda "não encontrado" se os servidores responderam de fato (erro/timeout não entra no cache)
+    try{
+      const p=`artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(clean(track))}`;
+      let {r,j}=await lrFetch('https://lrclib.net/api/get?'+p);
+      if(r.ok){if(j.plainLyrics){lyrCache.set(key,{text:j.plainLyrics,t:Date.now()});return j.plainLyrics}}
+      else if(r.status!==404)sure=false;
+      ({r,j}=await lrFetch('https://lrclib.net/api/search?'+p));
+      if(r.ok){const h=j.find(x=>x.plainLyrics);if(h){lyrCache.set(key,{text:h.plainLyrics,t:Date.now()});return h.plainLyrics}}
+      else sure=false;
+    }catch(e){sure=false}
+    if(sure)lyrCache.set(key,{text:null,t:Date.now()});
+    return null;
+  })().finally(()=>lyrInflight.delete(key));
+  lyrInflight.set(key,job);
+  return job;
 }
 
 /* ---------- som ---------- */
