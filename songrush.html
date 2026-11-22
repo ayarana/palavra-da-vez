@@ -1811,7 +1811,7 @@ function fbCall(tag,fn,args){
   const k=lastKey+'fb'+tag;if(called.has(k))return;called.add(k);
   Promise.resolve(sb.rpc(fn,args)).then(({error})=>{if(!error)schedule()}).catch(()=>{});
 }
-setInterval(()=>{
+function clockTick(){
   const R=S.room;if(!R||!ROOM_ID)return;
   const fw=fbWait();
   if(popupWatch())render();
@@ -1860,7 +1860,9 @@ setInterval(()=>{
   }
   if(R.phase!=='reveal'){tick.cur=-1}
   if(R.phase==='done')showCarousel(-1);
-},100);
+}
+// o relógio roda num Worker: timers de aba em segundo plano são reduzidos (até 1x/min) e congelavam o jogo quando o admin saía da aba
+try{const w=new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),100)'],{type:'text/javascript'})));w.onmessage=clockTick;w.onerror=()=>{w.terminate();setInterval(clockTick,100)}}catch(e){setInterval(clockTick,100)}
 function tick(){}tick.cur=-1;
 // carrossel: só a música que está tocando fica visível; as outras somem (cada uma volta a aparecer só na sua vez)
 function showCarousel(idx){
