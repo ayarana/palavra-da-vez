@@ -1806,6 +1806,21 @@ function hostCall(tag,fn,args){
 // plano B se o admin parou (aba em segundo plano, conexão ruim): passados FB_MS além do prazo do admin, os outros jogadores
 // tentam a mesma RPC de avanço, escalonados por jogador. Se o servidor recusar (só o admin pode), o erro é ignorado e não há nova tentativa
 const FB_MS=6000;
+// o admin só encerra a fase de escolha "porque todos responderam" depois de conferir no servidor (jogadores e prontos atuais):
+// com a lista de jogadores desatualizada na tela dele (ex.: 1/1 com a sala cheia), encerraria o turno na hora e cortaria quem ainda busca
+const allChk={k:'',ok:false,t:0,busy:false};
+function confirmAll(R){
+  if(allChk.k===lastKey&&allChk.ok)return true;
+  if(allChk.busy||(allChk.k===lastKey&&Date.now()-allChk.t<2000))return false;
+  allChk.busy=true;allChk.k=lastKey;allChk.ok=false;const rid=ROOM_ID,turn=R.turn;
+  withTimeout(Promise.all([sb.from('pdv_players').select('user_id,first_turn').eq('room_id',rid),sb.from('pdv_ready').select('user_id').eq('room_id',rid).eq('turn',turn)]),8000).then(([p,r])=>{
+    if(!p.data||!r.data||rid!==ROOM_ID)return;
+    const act=p.data.filter(x=>(x.first_turn||1)<=turn);
+    allChk.ok=act.length>0&&act.every(x=>r.data.some(y=>y.user_id===x.user_id));
+    if(p.data.length!==S.players.length||r.data.length!==S.ready.filter(x=>x.turn===turn).length)schedule();
+  }).catch(()=>{}).finally(()=>{allChk.busy=false;allChk.t=Date.now()});
+  return false;
+}
 function fbWait(){const R=S.room;if(!R||!user||isHost())return -1;const ids=S.players.map(p=>p.user_id).filter(u=>u!==R.host_id).sort(),i=ids.indexOf(user.id);return i<0?-1:FB_MS+Math.min(i,4)*1500}
 function fbCall(tag,fn,args){
   const k=lastKey+'fb'+tag;if(called.has(k))return;called.add(k);
@@ -1839,7 +1854,7 @@ function clockTick(){
     tm.textContent=all?tr('Todos responderam — revelando…'):left>0?'⏱ '+left+'s':tr('Aguardando envios…');
     if(!all&&Date.now()<flashUntil){const f=document.createElement('span');f.className='flash';f.textContent=flashText;tm.appendChild(f)}
     tm.classList.toggle('urgent',!all&&left>0&&left<=5);
-    if(isHost()&&((all&&age>700)||age>=dur+3200))hostCall('br','pdv_begin_reveal',{p_room:ROOM_ID});
+    if(isHost()&&((all&&age>700&&confirmAll(R))||age>=dur+3200))hostCall('br','pdv_begin_reveal',{p_room:ROOM_ID});
     else if(fw>=0&&((all&&age>700+fw)||age>=dur+3200+fw))fbCall('br','pdv_begin_reveal',{p_room:ROOM_ID});
   }
   if(R.phase!=='input')$('timer').classList.remove('urgent');
