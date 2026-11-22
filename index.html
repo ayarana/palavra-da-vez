@@ -479,7 +479,7 @@ footer#supportBar{display:flex;flex-direction:column;align-items:center;gap:12px
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 const SB_URL='https://cqufqichgmhzcycelamj.supabase.co',SB_KEY='sb_publishable_fk2o9_YzCxxsgncOCxHMtA_70F8nf9o';
-const sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{storage:window.sessionStorage,storageKey:'sb-test-auth'}});
+const sb=window.supabase.createClient(SB_URL,SB_KEY);
 const LEVELS={
  facil:{label:'Fácil',w:{
   'amor':['amor','love','amor'],'coração':['coração','heart','corazón'],'vida':['vida','life','vida'],
@@ -996,7 +996,7 @@ $('tw').onclick=async()=>{
   if(oauthBusy)return;
   oauthBusy=true;$('tw').disabled=true;
   try{
-    const {error}=await sb.auth.signInAnonymously({options:{data:{name:'Teste'+Math.floor(Math.random()*900+100)}}});
+    const {error}=await sb.auth.signInWithOAuth({provider:'twitch',options:{redirectTo:location.origin+location.pathname}});
     if(error)toast(errMsg(error));
   }catch(e){toast(errMsg(e))}
   finally{oauthBusy=false;$('tw').disabled=false}
