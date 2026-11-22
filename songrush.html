@@ -634,10 +634,21 @@ function hitOf(t){const m=norm(t).match(rx());return m?t.slice(m.index+m[1].leng
 function hl(t){const m=norm(t).match(rx());if(!m)return esc(t);const i=m.index+m[1].length,L=m[0].length-m[1].length;return esc(t.slice(0,i))+'<mark>'+esc(t.slice(i,i+L))+'</mark>'+esc(t.slice(i+L))}
 function jsonp(url){return new Promise((res,rej)=>{
   const cb='cb'+Math.random().toString(36).slice(2),s=document.createElement('script');
-  const to=setTimeout(()=>{rej(new Error(tr('tempo esgotado')));s.remove()},10000);
+  // se o script chegar depois do timeout/erro, o callback vira um no-op que se apaga (sem ReferenceError nem vazamento)
+  const drop=()=>{s.remove();window[cb]=()=>{delete window[cb]}};
+  const to=setTimeout(()=>{rej(new Error(tr('tempo esgotado')));drop()},10000);
   window[cb]=d=>{clearTimeout(to);res(d);s.remove();delete window[cb]};
-  s.onerror=()=>{clearTimeout(to);rej(new Error(tr('falha de conexão')));s.remove()};
+  s.onerror=()=>{clearTimeout(to);rej(new Error(tr('falha de conexão')));drop()};
   s.src=url+'&callback='+cb;document.head.appendChild(s)})}
+// cache por URL de busca (10 min): repetir a mesma busca não refaz o pedido; falhas não ficam no cache
+const jpCache=new Map();
+function jsonpC(url){
+  const c=jpCache.get(url);if(c&&Date.now()-c.t<600000)return c.p;
+  const p=jsonp(url);jpCache.set(url,{p,t:Date.now()});
+  if(jpCache.size>200)jpCache.delete(jpCache.keys().next().value);
+  p.catch(()=>{if(jpCache.get(url)&&jpCache.get(url).p===p)jpCache.delete(url)});
+  return p;
+}
 const flat=s=>norm(s).replace(/[^a-z0-9]+/g,' ').trim();   // sem acento, sem maiúsculas, sem pontuação
 /*FUZZY-START*/
 // distância de edição (letras trocadas, faltando ou sobrando)
@@ -714,13 +725,17 @@ async function findSong(artist,track){
   if(!compact(track)||!compact(artist))return null;
   const it=x=>({trackName:x.trackName,artistName:x.artistName,art:(x.artworkUrl100||'').replace('100x100','300x300'),previewUrl:x.previewUrl});
   const dz=x=>({trackName:x.title,artistName:x.artist&&x.artist.name,art:x.album&&x.album.cover_big,previewUrl:x.preview});
-  const I=t=>jsonp('https://itunes.apple.com/search?entity=song&limit=50&country=BR&term='+encodeURIComponent(t)).then(d=>d.results.map(it));
-  const D=t=>jsonp('https://api.deezer.com/search?limit=40&output=jsonp&q='+encodeURIComponent(t)).then(d=>d.data.map(dz));
-  const IA=t=>jsonp('https://itunes.apple.com/search?entity=musicArtist&limit=15&country=BR&term='+encodeURIComponent(t)).then(d=>d.results.map(x=>x.artistName).filter(Boolean));
-  const DA=t=>jsonp('https://api.deezer.com/search/artist?limit=15&output=jsonp&q='+encodeURIComponent(t)).then(d=>d.data.map(x=>x.name).filter(Boolean));
-  const songQs=[I(artist+' '+track),I(flat(artist)+' '+flat(track)),I(track),I(artist),D(artist+' '+track),D(artist)];
-  const res=await Promise.allSettled([...songQs,IA(artist),DA(artist)]);
-  if(res.every(r=>r.status==='rejected'))throw new Error(tr('sem conexão com os catálogos'));
+  const I=t=>jsonpC('https://itunes.apple.com/search?entity=song&limit=50&country=BR&term='+encodeURIComponent(t)).then(d=>d.results.map(it));
+  const D=t=>jsonpC('https://api.deezer.com/search?limit=40&output=jsonp&q='+encodeURIComponent(t)).then(d=>d.data.map(dz));
+  const IA=t=>jsonpC('https://itunes.apple.com/search?entity=musicArtist&limit=15&country=BR&term='+encodeURIComponent(t)).then(d=>d.results.map(x=>x.artistName).filter(Boolean));
+  const DA=t=>jsonpC('https://api.deezer.com/search/artist?limit=15&output=jsonp&q='+encodeURIComponent(t)).then(d=>d.data.map(x=>x.name).filter(Boolean));
+  const nSong=6;   // as 6 primeiras consultas são de músicas; as 2 últimas, de artistas
+  const mk=()=>[I(artist+' '+track),I(flat(artist)+' '+flat(track)),I(track),I(artist),D(artist+' '+track),D(artist),IA(artist),DA(artist)];
+  // 1º passo: só a consulta principal. Se ela já traz a faixa exata (0 erros, não é versão) na 1ª fonte, nenhuma outra consulta
+  // poderia vencer (a ordem do catálogo desempata), então as outras 7 nem são enviadas
+  const q0=I(artist+' '+track);
+  const first=(await Promise.allSettled([q0]))[0];
+  let res;
   const seen=new Set(),cands=[],artists=new Set();
   const add=(list,si)=>list.forEach((x,i)=>{
     if(!x.previewUrl||!x.trackName||!x.artistName)return;
@@ -730,11 +745,15 @@ async function findSong(artist,track){
     const c=cost(track,artist,x);if(!c)return;
     seen.add(k);cands.push({x,c,o:si*100+i});
   });
-  res.forEach((r,si)=>{if(r.status!=='fulfilled')return;if(si<songQs.length)add(r.value,si);else r.value.forEach(n=>artists.add(n))});
+  const done=r=>r.value.some(x=>{const c=x.previewUrl&&x.trackName&&x.artistName&&cost(track,artist,x);return c&&c.dt+c.da===0&&c.exact&&!c.ver});
+  if(first.status==='fulfilled'&&done(first)){res=[first]}
+  else{const q=mk();q[0]=q0;res=[first,...await Promise.allSettled(q.slice(1))]}   // q0 já está no cache: não repete o pedido
+  if(res.every(r=>r.status==='rejected'))throw new Error(tr('sem conexão com os catálogos'));
+  res.forEach((r,si)=>{if(r.status!=='fulfilled')return;if(si<nSong)add(r.value,si);else r.value.forEach(n=>artists.add(n))});
   const best=()=>cands.length?Math.min(...cands.map(c=>c.c.dt+c.c.da)):Infinity;
   // 2ª rodada: se o catálogo não achou (nome com erro de digitação), busca pelo nome OFICIAL do artista que mais se aproxima do digitado
   if(best()>0){
-    const names=[...artists].map(n=>({n,d:artistDist(artist,n)})).filter(o=>o.d!==null).sort((a,b)=>a.d-b.d).slice(0,2).map(o=>o.n);
+    const names=[...artists].map(n=>({n,d:artistDist(artist,n)})).filter(o=>o.d!==null).sort((a,b)=>a.d-b.d).filter((o,_,a)=>o.d===a[0].d).slice(0,2).map(o=>o.n);   // só os empatados no melhor
     if(names.length){
       const r2=await Promise.allSettled(names.flatMap(n=>[I(n+' '+track),I(n),D(n+' '+track),D(n)]));
       r2.forEach((r,si)=>{if(r.status==='fulfilled')add(r.value,100+si)});
