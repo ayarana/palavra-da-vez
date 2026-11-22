@@ -1788,8 +1788,17 @@ function hostCall(tag,fn,args){
   const k=lastKey+tag;if(called.has(k))return;called.add(k);
   sb.rpc(fn,args).then(({error})=>{if(error){setTimeout(()=>called.delete(k),700);console.warn(fn,error.message)}else schedule()});
 }
+// plano B se o admin parou (aba em segundo plano, conexão ruim): passados FB_MS além do prazo do admin, os outros jogadores
+// tentam a mesma RPC de avanço, escalonados por jogador. Se o servidor recusar (só o admin pode), o erro é ignorado e não há nova tentativa
+const FB_MS=6000;
+function fbWait(){const R=S.room;if(!R||!user||isHost())return -1;const ids=S.players.map(p=>p.user_id).filter(u=>u!==R.host_id).sort(),i=ids.indexOf(user.id);return i<0?-1:FB_MS+Math.min(i,4)*1500}
+function fbCall(tag,fn,args){
+  const k=lastKey+'fb'+tag;if(called.has(k))return;called.add(k);
+  Promise.resolve(sb.rpc(fn,args)).then(({error})=>{if(!error)schedule()}).catch(()=>{});
+}
 setInterval(()=>{
   const R=S.room;if(!R||!ROOM_ID)return;
+  const fw=fbWait();
   if(popupWatch())render();
   if(window.__pop)updatePopup();
   renderStreamNote(R);
@@ -1805,6 +1814,7 @@ setInterval(()=>{
     const n=COUNT_SECS-Math.floor(age/1000),lab=n>0?n:tr('VAI!');
     if(lab!==lastCdN){lastCdN=lab;const el=$('cdn');el.textContent=lab;el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop');beep(n>0?660:1040,n>0?.18:.5)}
     if(isHost()&&age>=3100)hostCall('bi','pdv_begin_input',{p_room:ROOM_ID});
+    else if(fw>=0&&age>=3100+fw)fbCall('bi','pdv_begin_input',{p_room:ROOM_ID});
   }else cd.hidden=true;
   if(R.phase==='input'&&builtIn==='in'+R.turn&&Date.now()-(tick.ri||0)>500){tick.ri=Date.now();renderInput()}
   if(R.phase==='input'){
@@ -1815,6 +1825,7 @@ setInterval(()=>{
     if(!all&&Date.now()<flashUntil){const f=document.createElement('span');f.className='flash';f.textContent=flashText;tm.appendChild(f)}
     tm.classList.toggle('urgent',!all&&left>0&&left<=5);
     if(isHost()&&((all&&age>700)||age>=dur+3200))hostCall('br','pdv_begin_reveal',{p_room:ROOM_ID});
+    else if(fw>=0&&((all&&age>700+fw)||age>=dur+3200+fw))fbCall('br','pdv_begin_reveal',{p_room:ROOM_ID});
   }
   if(R.phase!=='input')$('timer').classList.remove('urgent');
   if(R.phase==='reveal'){
@@ -1825,10 +1836,12 @@ setInterval(()=>{
     if(audio&&idx<n){const bar=document.querySelector(`#c${idx} .bar i`);if(bar)bar.style.width=Math.min((age%sm)/sm,1)*100+'%'}
     if(idx>=n&&audio){stopAudio()}
     if(isHost()&&age>=total)hostCall('fin','pdv_finalize_turn',{p_room:ROOM_ID});
+    else if(fw>=0&&age>=total+fw)fbCall('fin','pdv_finalize_turn',{p_room:ROOM_ID});
   }
   if(R.phase==='done'){
     $('timer').textContent=tr('Próximo turno em {s}s',{s:Math.max(0,Math.ceil((NEXT_TURN_MS-age)/1000))});
     if(isHost()&&age>=NEXT_TURN_MS)hostCall('nx','pdv_next_turn',{p_room:ROOM_ID});
+    else if(fw>=0&&age>=NEXT_TURN_MS+fw)fbCall('nx','pdv_next_turn',{p_room:ROOM_ID});
   }
   if(R.phase!=='reveal'){tick.cur=-1}
   if(R.phase==='done')showCarousel(-1);
