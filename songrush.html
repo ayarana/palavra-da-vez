@@ -1587,7 +1587,10 @@ async function giveUp(){
 }
 // chamada à função de validação; devolve {data} ou {error: código}
 async function submitSongServer(artist,track){
-  const {data,error}=await sb.functions.invoke('submit-song',{body:{room_id:ROOM_ID,artist,track}});
+  let r;
+  // sem resposta em 20 s: libera o botão e recarrega a sala (o servidor pode ter registrado a música mesmo assim)
+  try{r=await withTimeout(sb.functions.invoke('submit-song',{body:{room_id:ROOM_ID,artist,track}}),20000)}catch(e){schedule();return{error:'submit_failed'}}
+  const {data,error}=r;
   if(!error)return{data};
   let code='submit_failed';
   try{const j=await error.context.json();if(j&&j.error)code=j.error}catch(e){}
