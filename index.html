@@ -1753,14 +1753,14 @@ async function lookupTrackMeta(song){
 }
 function loadTrackMeta(song,card){
   const box=card&&card.querySelector('.song-meta');if(!box)return;
-  if(trackMetaCache.has(song.key)){
-    const cached=trackMetaCache.get(song.key);
+  if(trackMetaCache.has(song.song_key)){
+    const cached=trackMetaCache.get(song.song_key);
     if(cached&&typeof cached.then==='function')return;
     box.textContent=trackMetaLine(cached);return;
   }
   const pending=lookupTrackMeta(song).catch(()=>null);
-  trackMetaCache.set(song.key,pending);
-  pending.then(meta=>{trackMetaCache.set(song.key,meta);if(box.isConnected)box.textContent=trackMetaLine(meta)});
+  trackMetaCache.set(song.song_key,pending);
+  pending.then(meta=>{trackMetaCache.set(song.song_key,meta);if(box.isConnected)box.textContent=trackMetaLine(meta)});
 }
 function playIdx(i){
   stopAudio();const g=groups()[i];if(!g)return;
